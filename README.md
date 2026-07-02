@@ -108,23 +108,33 @@ Submitter uploads photo / PDF
 ## Setup
 
 ```bash
-# 1. Clone
-git clone <repository-url>
-cd 611-petty-cash
-
-# 2. Install dependencies
+# 1. Install dependencies
 bun install
 
-# 3. Configure environment
-cp .env.example .env
-# Fill in: DATABASE_URL, OCR_API_KEY, BETTER_AUTH_SECRET, EXCHANGE_RATE_API_KEY
-
-# 4. Start development server
+# 2. Start development server
 bun run dev
 
-# 5. Run quality checks (Biome + TypeScript)
+# 3. Run quality checks (Biome)
 bun run check
 ```
+
+---
+
+## Week 1 Status — UI-First Prototype
+
+Week 1 ships a clickable, role-aware **UI prototype running entirely on mock data** (seed JSON → `localStorage`). No real Better Auth, Supabase, OCR, or exchange-rate APIs yet — those land W2–W3. See [`../WEEK1_PLAN.md`](../WEEK1_PLAN.md) for the full plan.
+
+**Demo accounts** (all password `demo123`):
+
+| Email | Role |
+|---|---|
+| `hq@example.com` | HQ Admin |
+| `singapore@example.com` | Branch User — Singapore |
+| `malawi@example.com` | Branch User — Malawi |
+| `southafrica@example.com` | Branch User — South Africa |
+| `costarica@example.com` | Branch User — Costa Rica |
+
+All data lives in your browser. Use **Reset demo data** (Settings) to restore seed state.
 
 ---
 
@@ -132,32 +142,12 @@ bun run check
 
 | Week | Phase | Deliverables |
 |---|---|---|
-| W1 | Requirements & Design | PRD (`docs/PRD.md`) + Mockups (`docs/MOCKUPS.md`) |
-| W2 | Foundation & Auth | Project setup, Better Auth, RLS, 3-role setup |
+| W1 | Requirements & Design | UI prototype + PRD (`docs/PRD.md`) + Mockups (`docs/MOCKUPS.md`) |
+| W2 | Foundation & Auth | Project setup, Better Auth, RLS, role setup |
 | W3 | OCR Integration | OCR API + receipt upload pipeline |
 | W4 | Core Features | Expense entry, category selector, fund balance view |
 | W5 | HQ Dashboard | USD consolidation, funding plan management |
 | W6 | Testing & Deploy | Unit/E2E tests, Coolify setup, UAT |
-
----
-
-## Week 1 Tasks
-
-### `docs/PRD.md`
-- Role permissions matrix (HQ Admin / Branch Leader / Branch Submitter)
-- Receipt upload → OCR → correction → submission flow
-- Funding plan lifecycle (create → stage release → close)
-- Category management (two-level, HQ-only)
-- OCR failure handling strategy
-- Currency conversion approach (rate source, refresh frequency)
-- RLS policy per role
-
-### `docs/MOCKUPS.md`
-- HQ global dashboard (all branches, USD)
-- Branch dashboard (local currency balance, recent receipts)
-- Receipt upload & OCR correction interface
-- Category selector (with conditional sub-category)
-- Funding plan management (HQ)
 
 ---
 
@@ -171,7 +161,7 @@ bun run check
 
 **Data security** — No secrets in client-side code. Server Actions only for privileged operations.
 
-**Export** — Receipt data and reports designed for future CSV/Excel/PDF export.
+**Export** — Receipt data and reports designed for CSV/Excel/PDF export.
 
 ---
 

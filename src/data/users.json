@@ -1,0 +1,47 @@
+[
+	{
+		"id": "u-hq",
+		"name": "HQ Administrator",
+		"email": "hq@example.com",
+		"password": "demo123",
+		"role": "hq_admin",
+		"branchId": null,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "u-sg",
+		"name": "Singapore Branch",
+		"email": "singapore@example.com",
+		"password": "demo123",
+		"role": "branch_user",
+		"branchId": "br-sg",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "u-mw",
+		"name": "Malawi Branch",
+		"email": "malawi@example.com",
+		"password": "demo123",
+		"role": "branch_user",
+		"branchId": "br-mw",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "u-za",
+		"name": "South Africa Branch",
+		"email": "southafrica@example.com",
+		"password": "demo123",
+		"role": "branch_user",
+		"branchId": "br-za",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "u-cr",
+		"name": "Costa Rica Branch",
+		"email": "costarica@example.com",
+		"password": "demo123",
+		"role": "branch_user",
+		"branchId": "br-cr",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	}
+]

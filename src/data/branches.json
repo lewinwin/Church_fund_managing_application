@@ -1,0 +1,30 @@
+[
+	{
+		"id": "br-sg",
+		"name": "Singapore",
+		"country": "Singapore",
+		"localCurrency": "SGD",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "br-mw",
+		"name": "Malawi",
+		"country": "Malawi",
+		"localCurrency": "MWK",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "br-za",
+		"name": "South Africa",
+		"country": "South Africa",
+		"localCurrency": "ZAR",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "br-cr",
+		"name": "Costa Rica",
+		"country": "Costa Rica",
+		"localCurrency": "CRC",
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	}
+]

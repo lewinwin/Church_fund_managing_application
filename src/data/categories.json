@@ -1,0 +1,72 @@
+[
+	{
+		"id": "cat-meals",
+		"name": "Meals & Hospitality",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-transport",
+		"name": "Transportation",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-supplies",
+		"name": "Stationery & Supplies",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-utilities",
+		"name": "Utilities",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-events",
+		"name": "Ministry Events",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-legacy",
+		"name": "Printing (legacy)",
+		"parentId": null,
+		"active": false,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-other",
+		"name": "Other",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-venue",
+		"name": "Venue Rental",
+		"parentId": "cat-other",
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-repair",
+		"name": "Equipment Repair",
+		"parentId": "cat-other",
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-misc",
+		"name": "Miscellaneous",
+		"parentId": "cat-other",
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	}
+]
