@@ -35,7 +35,7 @@ export function BarChart({
 						key={b.label}
 						className="group flex flex-1 flex-col items-center justify-end gap-2"
 					>
-						<span className="text-xs font-semibold text-[var(--color-ink)] opacity-0 transition-opacity group-hover:opacity-100">
+						<span className="text-xs font-semibold text-[var(--color-ink)]">
 							{formatValue(b.value)}
 						</span>
 						<div

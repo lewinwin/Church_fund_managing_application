@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, PlusCircle } from "lucide-react";
+import { ArrowLeft, PlusCircle, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { CategoryDonutCard } from "#/components/dashboard/CategoryDonutCard";
 import { FundOverview } from "#/components/dashboard/FundOverview";
+import { EditPlanModal } from "#/components/funding/EditPlanModal";
 import { FundReleaseModal } from "#/components/funding/FundReleaseModal";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { ExpenseTable } from "#/components/receipts/ExpenseTable";
@@ -36,6 +37,7 @@ function BranchDetailPage() {
 	const { data } = useStore();
 	const [selected, setSelected] = useState<Expense | null>(null);
 	const [releaseOpen, setReleaseOpen] = useState(false);
+	const [editOpen, setEditOpen] = useState(false);
 
 	const branch = branchById(data.branches, branchId);
 	if (!branch) {
@@ -105,9 +107,16 @@ function BranchDetailPage() {
 						</Badge>
 					</div>
 				</div>
-				<Button onClick={() => setReleaseOpen(true)}>
-					<PlusCircle size={16} /> Record fund release
-				</Button>
+				<div className="flex gap-2">
+					{plan && (
+						<Button variant="ghost" onClick={() => setEditOpen(true)}>
+							<Settings2 size={16} /> Manage plan
+						</Button>
+					)}
+					<Button onClick={() => setReleaseOpen(true)}>
+						<PlusCircle size={16} /> Record fund release
+					</Button>
+				</div>
 			</div>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -186,6 +195,11 @@ function BranchDetailPage() {
 				open={releaseOpen}
 				onClose={() => setReleaseOpen(false)}
 				defaultBranchId={branch.id}
+			/>
+			<EditPlanModal
+				open={editOpen}
+				onClose={() => setEditOpen(false)}
+				plan={plan ?? null}
 			/>
 		</div>
 	);

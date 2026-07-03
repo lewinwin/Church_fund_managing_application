@@ -1,7 +1,42 @@
 [
 	{
-		"id": "cat-meals",
-		"name": "Meals & Hospitality",
+		"id": "cat-office",
+		"name": "Office Equipment",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-computer",
+		"name": "Computer Hardware & Accessories",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-medical",
+		"name": "Medical Expenses",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-water",
+		"name": "Water Charges",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-electricity",
+		"name": "Electricity Charges",
+		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "cat-telecom",
+		"name": "Telephone & Internet Charges",
 		"parentId": null,
 		"active": true,
 		"createdAt": "2026-01-05T09:00:00.000Z"
@@ -14,37 +49,51 @@
 		"createdAt": "2026-01-05T09:00:00.000Z"
 	},
 	{
-		"id": "cat-supplies",
-		"name": "Stationery & Supplies",
+		"id": "cat-vehicle",
+		"name": "Vehicle Expenses",
 		"parentId": null,
 		"active": true,
 		"createdAt": "2026-01-05T09:00:00.000Z"
 	},
 	{
-		"id": "cat-utilities",
-		"name": "Utilities",
+		"id": "cat-meals",
+		"name": "Meals & Hospitality",
 		"parentId": null,
 		"active": true,
-		"createdAt": "2026-01-05T09:00:00.000Z"
-	},
-	{
-		"id": "cat-events",
-		"name": "Ministry Events",
-		"parentId": null,
-		"active": true,
-		"createdAt": "2026-01-05T09:00:00.000Z"
-	},
-	{
-		"id": "cat-legacy",
-		"name": "Printing (legacy)",
-		"parentId": null,
-		"active": false,
 		"createdAt": "2026-01-05T09:00:00.000Z"
 	},
 	{
 		"id": "cat-other",
 		"name": "Other",
 		"parentId": null,
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-stationery",
+		"name": "Stationery",
+		"parentId": "cat-other",
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-cleaning",
+		"name": "Cleaning Supplies",
+		"parentId": "cat-other",
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-church",
+		"name": "Church Supplies",
+		"parentId": "cat-other",
+		"active": true,
+		"createdAt": "2026-01-05T09:00:00.000Z"
+	},
+	{
+		"id": "sub-gifts",
+		"name": "Gifts & Souvenirs",
+		"parentId": "cat-other",
 		"active": true,
 		"createdAt": "2026-01-05T09:00:00.000Z"
 	},
@@ -58,13 +107,6 @@
 	{
 		"id": "sub-repair",
 		"name": "Equipment Repair",
-		"parentId": "cat-other",
-		"active": true,
-		"createdAt": "2026-01-05T09:00:00.000Z"
-	},
-	{
-		"id": "sub-misc",
-		"name": "Miscellaneous",
 		"parentId": "cat-other",
 		"active": true,
 		"createdAt": "2026-01-05T09:00:00.000Z"

@@ -1,6 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { PlusCircle, Wallet } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { EditPlanModal } from "#/components/funding/EditPlanModal";
 import { FundReleaseModal } from "#/components/funding/FundReleaseModal";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import { Modal } from "#/components/ui/Overlay";
@@ -16,7 +17,7 @@ import {
 import { activePlanForBranch, branchFinancials } from "#/lib/calc";
 import { formatPercent, formatUsd } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
-import type { FundingPlanStatus } from "#/lib/types";
+import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/funding-plans")({
 	component: FundingPlansPage,
@@ -41,9 +42,9 @@ function statusTone(s: FundingPlanStatus) {
 
 function FundingPlansPage() {
 	const { data, addFundingPlan } = useStore();
-	const navigate = useNavigate();
 	const [createOpen, setCreateOpen] = useState(false);
 	const [releaseOpen, setReleaseOpen] = useState(false);
+	const [editPlan, setEditPlan] = useState<FundingPlan | null>(null);
 
 	const rows: PlanRow[] = data.fundingPlans.map((p) => {
 		const fin = branchFinancials(data, p.branchId);
@@ -128,10 +129,9 @@ function FundingPlansPage() {
 				<Button
 					variant="ghost"
 					onClick={() =>
-						navigate({
-							to: "/branches/$branchId",
-							params: { branchId: r.branchId },
-						})
+						setEditPlan(
+							data.fundingPlans.find((p) => p.id === r.planId) ?? null,
+						)
 					}
 				>
 					Manage
@@ -158,7 +158,9 @@ function FundingPlansPage() {
 				<DataTable columns={columns} rows={rows} getKey={(r) => r.planId} />
 				<p className="mt-3 text-xs text-[var(--color-muted)]">
 					Available = released − spent. Recording a release increases both
-					released and available. Each branch has one active plan in v1.
+					released and available. Each branch has one active plan in v1 — use{" "}
+					<span className="font-medium">Manage</span> to edit a plan's target or
+					close it, which frees the branch for a new plan.
 				</p>
 			</SectionCard>
 
@@ -170,6 +172,11 @@ function FundingPlansPage() {
 			<FundReleaseModal
 				open={releaseOpen}
 				onClose={() => setReleaseOpen(false)}
+			/>
+			<EditPlanModal
+				open={editPlan !== null}
+				onClose={() => setEditPlan(null)}
+				plan={editPlan}
 			/>
 		</div>
 	);

@@ -32,6 +32,7 @@ interface StoreContextValue {
 	hydrated: boolean;
 	addExpense: (input: NewExpense) => Expense;
 	addFundingPlan: (input: NewFundingPlan) => FundingPlan;
+	updateFundingPlan: (id: string, patch: Partial<FundingPlan>) => void;
 	addFundRelease: (input: NewFundRelease) => FundRelease;
 	addCategory: (input: { name: string; parentId: string | null }) => Category;
 	updateCategory: (id: string, patch: Partial<Category>) => void;
@@ -93,6 +94,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 				return next;
 			});
 			return plan;
+		},
+		[],
+	);
+
+	const updateFundingPlan = useCallback<StoreContextValue["updateFundingPlan"]>(
+		(id, patch) => {
+			setData((prev) => {
+				const next = {
+					...prev,
+					fundingPlans: prev.fundingPlans.map((p) =>
+						p.id === id ? { ...p, ...patch } : p,
+					),
+				};
+				saveData(next);
+				return next;
+			});
 		},
 		[],
 	);
@@ -209,6 +226,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			hydrated,
 			addExpense,
 			addFundingPlan,
+			updateFundingPlan,
 			addFundRelease,
 			addCategory,
 			updateCategory,
@@ -222,6 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			hydrated,
 			addExpense,
 			addFundingPlan,
+			updateFundingPlan,
 			addFundRelease,
 			addCategory,
 			updateCategory,
