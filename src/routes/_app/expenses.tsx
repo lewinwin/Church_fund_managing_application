@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Receipt } from "lucide-react";
 import { useState } from "react";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
-import { ExpenseTable } from "#/components/receipts/ExpenseTable";
-import { EmptyState, SectionCard } from "#/components/ui/primitives";
+import { GroupedExpenseList } from "#/components/receipts/GroupedExpenseList";
+import { SectionCard } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById, expensesForBranch } from "#/lib/calc";
 import { useStore } from "#/lib/store/store";
@@ -33,21 +32,12 @@ function ExpensesPage() {
 				</span>
 			}
 		>
-			{expenses.length === 0 ? (
-				<EmptyState
-					icon={<Receipt size={20} />}
-					title="No receipts yet"
-					description="Upload your first receipt to start tracking spending."
-				/>
-			) : (
-				<ExpenseTable
-					expenses={expenses}
-					categories={data.categories}
-					onSelect={setSelected}
-					branchName={branch.name}
-					showUsd={false}
-				/>
-			)}
+			<GroupedExpenseList
+				expenses={expenses}
+				categories={data.categories}
+				currency={branch.localCurrency}
+				onSelect={setSelected}
+			/>
 
 			<ExpenseDetailDrawer
 				expense={selected}

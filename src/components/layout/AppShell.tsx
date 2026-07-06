@@ -1,4 +1,10 @@
-import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+	Link,
+	Outlet,
+	useNavigate,
+	useRouterState,
+} from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById } from "#/lib/calc";
@@ -117,6 +123,18 @@ export function AppShell() {
 					<Outlet />
 				</main>
 			</div>
+
+			{/* Mobile-only quick-add for branch users → Upload Receipt page.
+			    Hidden on desktop (md+) where the sidebar link is used instead. */}
+			{user.role === "branch_user" && pathname !== "/submit-receipt" && (
+				<Link
+					to="/submit-receipt"
+					aria-label="Upload receipt"
+					className="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-forest-800)] text-white shadow-lg transition-transform active:scale-95 md:hidden"
+				>
+					<Plus size={26} />
+				</Link>
+			)}
 		</div>
 	);
 }
