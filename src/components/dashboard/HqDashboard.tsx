@@ -82,59 +82,63 @@ export function HqDashboard() {
 
 	return (
 		<div className="space-y-5">
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<StatCard
-					label="Total released"
-					value={formatUsd(totals.releasedUsd)}
-					icon={<Wallet size={17} />}
-					sub="Across all branches"
-				/>
-				<StatCard
-					label="Total spent"
-					value={formatUsd(totals.spentUsd)}
-					accent="red"
-					icon={<ArrowUpRight size={17} />}
-					sub={`${data.expenses.length} receipts`}
-				/>
-				<StatCard
-					label="Total remaining"
-					value={formatUsd(totals.remainingUsd)}
-					accent="lime"
-					icon={<TrendingUp size={17} />}
-					sub={`${formatPercent(totals.percentUsed)} of funds used`}
-				/>
-				<StatCard
-					label="Branches at risk"
-					value={`${totals.low + totals.warning}`}
-					accent={totals.low > 0 ? "red" : "amber"}
-					icon={<ArrowUpRight size={17} />}
-					sub={`${totals.low} low · ${totals.warning} warning · ${totals.healthy} healthy`}
-				/>
-			</div>
-
-			<div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-				<div className="lg:col-span-2">
-					<FundOverview
-						title="Consolidated fund usage (USD)"
-						releasedUsd={totals.releasedUsd}
-						spentUsd={totals.spentUsd}
-						remainingUsd={totals.remainingUsd}
-						percentUsed={totals.percentUsed}
+			{/* On mobile, show the consolidated fund usage first, then a compact
+			    2-col KPI grid. Desktop keeps KPIs on top (order utilities). */}
+			<div className="flex flex-col gap-5">
+				<div className="order-2 grid grid-cols-2 gap-4 lg:order-1 xl:grid-cols-4">
+					<StatCard
+						label="Total released"
+						value={formatUsd(totals.releasedUsd)}
+						icon={<Wallet size={17} />}
+						sub="Across all branches"
+					/>
+					<StatCard
+						label="Total spent"
+						value={formatUsd(totals.spentUsd)}
+						accent="red"
+						icon={<ArrowUpRight size={17} />}
+						sub={`${data.expenses.length} receipts`}
+					/>
+					<StatCard
+						label="Total remaining"
+						value={formatUsd(totals.remainingUsd)}
+						accent="lime"
+						icon={<TrendingUp size={17} />}
+						sub={`${formatPercent(totals.percentUsed)} of funds used`}
+					/>
+					<StatCard
+						label="Branches at risk"
+						value={`${totals.low + totals.warning}`}
+						accent={totals.low > 0 ? "red" : "amber"}
+						icon={<ArrowUpRight size={17} />}
+						sub={`${totals.low} low · ${totals.warning} warning · ${totals.healthy} healthy`}
 					/>
 				</div>
-				<SectionCard title="Quick action">
-					<Button
-						className="w-full justify-start"
-						onClick={() => setReleaseOpen(true)}
-					>
-						<PlusCircle size={16} /> Record fund release
-					</Button>
-					<Link to="/funding-plans" className="mt-2 block">
-						<Button variant="ghost" className="w-full justify-start">
-							Manage funding plans
+
+				<div className="order-1 grid grid-cols-1 gap-5 lg:order-2 lg:grid-cols-3">
+					<div className="lg:col-span-2">
+						<FundOverview
+							title="Consolidated fund usage (USD)"
+							releasedUsd={totals.releasedUsd}
+							spentUsd={totals.spentUsd}
+							remainingUsd={totals.remainingUsd}
+							percentUsed={totals.percentUsed}
+						/>
+					</div>
+					<SectionCard title="Quick action">
+						<Button
+							className="w-full justify-start"
+							onClick={() => setReleaseOpen(true)}
+						>
+							<PlusCircle size={16} /> Record fund release
 						</Button>
-					</Link>
-				</SectionCard>
+						<Link to="/funding-plans" className="mt-2 block">
+							<Button variant="ghost" className="w-full justify-start">
+								Manage funding plans
+							</Button>
+						</Link>
+					</SectionCard>
+				</div>
 			</div>
 
 			<SectionCard title="Branch funding status">

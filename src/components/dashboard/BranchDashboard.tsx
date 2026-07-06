@@ -32,7 +32,9 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 
 	return (
 		<div className="space-y-5">
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+			{/* Redundant with the Fund balance card below, so hidden on mobile —
+			    this puts Fund balance at the top on phones. */}
+			<div className="hidden gap-4 sm:grid sm:grid-cols-3">
 				<StatCard
 					label="Total released"
 					value={formatMoney(releasedLocal, cur)}
