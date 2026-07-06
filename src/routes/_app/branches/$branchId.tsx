@@ -114,7 +114,7 @@ function BranchDetailPage() {
 						</Badge>
 					</div>
 				</div>
-				<div className="flex gap-2">
+				<div className="flex flex-wrap gap-2">
 					{plan && (
 						<Button variant="ghost" onClick={() => setEditOpen(true)}>
 							<Settings2 size={16} /> Manage plan

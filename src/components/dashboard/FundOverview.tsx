@@ -38,9 +38,9 @@ export function FundOverview({
 
 	return (
 		<Card className="p-5">
-			<div className="flex items-center justify-between gap-2">
+			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="flex min-w-0 items-center gap-2">
-					<h3 className="truncate text-base font-semibold">{title}</h3>
+					<h3 className="text-base font-semibold">{title}</h3>
 					<span className="shrink-0 rounded-md bg-[var(--color-forest-50)] px-1.5 py-0.5 text-xs font-semibold text-[var(--color-forest-700)]">
 						{unit}
 					</span>

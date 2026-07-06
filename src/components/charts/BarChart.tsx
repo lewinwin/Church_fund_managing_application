@@ -1,4 +1,4 @@
-// Simple responsive vertical bar chart (SVG). Used for spend-by-branch.
+// Simple responsive vertical bar chart. Used for spend-by-branch.
 export interface Bar {
 	label: string;
 	value: number;
@@ -16,7 +16,9 @@ export function BarChart({
 	color?: string;
 }) {
 	const max = Math.max(1, ...bars.map((b) => b.value));
-	const plotHeight = height - 34;
+	// Reserve space for the value label (top) + the x-axis label (bottom) so the
+	// tallest bar's number never touches the card title.
+	const plotHeight = height - 52;
 
 	if (bars.length === 0) {
 		return (
@@ -27,28 +29,33 @@ export function BarChart({
 	}
 
 	return (
-		<div className="flex items-end gap-3" style={{ height }}>
-			{bars.map((b) => {
-				const h = Math.max(4, (b.value / max) * plotHeight);
-				return (
-					<div
-						key={b.label}
-						className="group flex flex-1 flex-col items-center justify-end gap-2"
-					>
-						<span className="text-xs font-semibold text-[var(--color-ink)]">
-							{formatValue(b.value)}
-						</span>
+		<div className="overflow-x-auto pt-1">
+			<div
+				className="flex items-end gap-2"
+				style={{ height, minWidth: bars.length * 64 }}
+			>
+				{bars.map((b) => {
+					const h = Math.max(4, (b.value / max) * plotHeight);
+					return (
 						<div
-							className="w-full max-w-[46px] rounded-t-lg transition-all"
-							style={{ height: h, background: color }}
-							title={`${b.label}: ${formatValue(b.value)}`}
-						/>
-						<span className="max-w-full truncate text-xs text-[var(--color-muted)]">
-							{b.label}
-						</span>
-					</div>
-				);
-			})}
+							key={b.label}
+							className="flex min-w-0 flex-1 flex-col items-center justify-end gap-2"
+						>
+							<span className="max-w-full truncate text-[11px] font-semibold text-[var(--color-ink)]">
+								{formatValue(b.value)}
+							</span>
+							<div
+								className="w-full max-w-[46px] rounded-t-lg"
+								style={{ height: h, background: color }}
+								title={`${b.label}: ${formatValue(b.value)}`}
+							/>
+							<span className="max-w-full truncate text-[11px] text-[var(--color-muted)]">
+								{b.label}
+							</span>
+						</div>
+					);
+				})}
+			</div>
 		</div>
 	);
 }
