@@ -145,7 +145,7 @@ function FundingPlansPage() {
 			<SectionCard
 				title="Funding plans"
 				action={
-					<div className="flex gap-2">
+					<div className="flex flex-wrap justify-end gap-2">
 						<Button variant="ghost" onClick={() => setReleaseOpen(true)}>
 							<Wallet size={15} /> Record release
 						</Button>

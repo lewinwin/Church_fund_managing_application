@@ -15,11 +15,12 @@ import {
 	Input,
 	Select,
 	StatusPill,
+	Textarea,
 } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById, primaryCategories, subCategories } from "#/lib/calc";
 import { rateToUsd, toUsd } from "#/lib/currency/exchangeRate";
-import { formatUsd, todayIso } from "#/lib/format";
+import { formatMoney, todayIso } from "#/lib/format";
 import { extractReceiptData } from "#/lib/ocr/ocrService";
 import { useStore } from "#/lib/store/store";
 import type { CurrencyCode } from "#/lib/types";
@@ -46,7 +47,7 @@ function SubmitReceiptPage() {
 	const [confidence, setConfidence] = useState<number | null>(null);
 
 	// Editable review form (source of truth).
-	const [merchant, setMerchant] = useState("");
+	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [currency, setCurrency] = useState<CurrencyCode>(
 		branch?.localCurrency ?? "USD",
@@ -79,7 +80,7 @@ function SubmitReceiptPage() {
 			simulateFailure,
 		});
 
-		if (result.amount == null && result.merchantName == null) {
+		if (result.amount == null) {
 			// OCR failed / low confidence — leave fields empty for manual entry.
 			setOcrStatus("failed");
 			setConfidence(result.confidence ?? null);
@@ -89,7 +90,6 @@ function SubmitReceiptPage() {
 
 		setOcrStatus("done");
 		setConfidence(result.confidence ?? null);
-		setMerchant(result.merchantName ?? "");
 		setAmount(result.amount != null ? String(result.amount) : "");
 		setCurrency(result.currency ?? branch.localCurrency);
 		if (result.date) setExpenseDate(result.date);
@@ -99,7 +99,7 @@ function SubmitReceiptPage() {
 		e.preventDefault();
 		if (!branch) return;
 		const amt = Number(amount);
-		if (!merchant.trim()) return setError("Merchant name is required.");
+		if (!description.trim()) return setError("Description is required.");
 		if (!Number.isFinite(amt) || amt <= 0)
 			return setError("Enter a valid amount greater than 0.");
 		if (!expenseDate) return setError("Expense date is required.");
@@ -111,7 +111,7 @@ function SubmitReceiptPage() {
 		addExpense({
 			branchId: branch.id,
 			submittedByUserId: user?.id ?? "",
-			merchantName: merchant.trim(),
+			description: description.trim(),
 			expenseDate,
 			localAmount: Math.round(amt * 100) / 100,
 			localCurrency: currency,
@@ -132,7 +132,7 @@ function SubmitReceiptPage() {
 		setDataUrl(null);
 		setOcrStatus("idle");
 		setConfidence(null);
-		setMerchant("");
+		setDescription("");
 		setAmount("");
 		setCurrency(branch?.localCurrency ?? "USD");
 		setExpenseDate(todayIso());
@@ -142,8 +142,10 @@ function SubmitReceiptPage() {
 		setSubmitted(false);
 	}
 
-	const usdPreview =
-		amount && Number(amount) > 0 ? toUsd(Number(amount), currency) : 0;
+	const localPreview = formatMoney(
+		amount && Number(amount) > 0 ? Number(amount) : 0,
+		currency,
+	);
 
 	if (submitted) {
 		return (
@@ -153,7 +155,7 @@ function SubmitReceiptPage() {
 				</div>
 				<h2 className="text-xl font-bold">Expense submitted</h2>
 				<p className="mt-2 text-sm text-[var(--color-muted)]">
-					{merchant} · {formatUsd(usdPreview)} was added to {branch.name}. Your
+					{description} · {localPreview} was added to {branch.name}. Your
 					dashboard and receipts list have been updated.
 				</p>
 				<div className="mt-6 flex justify-center gap-2">
@@ -229,7 +231,7 @@ function SubmitReceiptPage() {
 							<div className="flex items-center gap-3 rounded-xl bg-[var(--color-forest-50)] px-4 py-5 text-[var(--color-forest-700)]">
 								<ScanLine size={20} className="animate-pulse" />
 								<span className="text-sm">
-									Extracting amount, currency, date and merchant…
+									Extracting amount, currency and date…
 								</span>
 							</div>
 						)}
@@ -269,11 +271,12 @@ function SubmitReceiptPage() {
 				</p>
 
 				<form onSubmit={handleSubmit} className="mt-4 space-y-4">
-					<Field label="Merchant name" required>
-						<Input
-							placeholder="e.g. FairPrice"
-							value={merchant}
-							onChange={(e) => setMerchant(e.target.value)}
+					<Field label="Description" required hint="What was this expense for?">
+						<Textarea
+							rows={2}
+							placeholder="e.g. Sunday service refreshments"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
 						/>
 					</Field>
 
@@ -344,13 +347,6 @@ function SubmitReceiptPage() {
 							</Select>
 						</Field>
 					)}
-
-					<div className="flex items-center justify-between rounded-xl bg-[var(--color-forest-50)] px-4 py-3">
-						<span className="text-sm text-[var(--color-muted)]">
-							USD equivalent (at entry)
-						</span>
-						<span className="text-lg font-bold">{formatUsd(usdPreview)}</span>
-					</div>
 
 					{error && (
 						<p className="rounded-lg bg-[#fdecea] px-3 py-2 text-sm text-[var(--color-negative)]">

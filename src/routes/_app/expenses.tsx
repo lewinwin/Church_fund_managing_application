@@ -45,6 +45,7 @@ function ExpensesPage() {
 					categories={data.categories}
 					onSelect={setSelected}
 					branchName={branch.name}
+					showUsd={false}
 				/>
 			)}
 
@@ -54,6 +55,7 @@ function ExpensesPage() {
 				branches={data.branches}
 				users={data.users}
 				onClose={() => setSelected(null)}
+				showUsd={false}
 			/>
 		</SectionCard>
 	);

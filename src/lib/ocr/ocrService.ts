@@ -1,31 +1,15 @@
 // OCR Service — W1 mock.
-// Real OCR (Google Vision / Textract / Mindee) lands W3. This stub simulates
-// latency then returns plausible extracted fields, or an empty low-confidence
-// result on the "simulate failure" path. Human correction is source of truth.
+// Real OCR (Gemini 2.5 Flash) lands W3. This stub simulates latency then
+// returns plausible extracted fields, or an empty low-confidence result on the
+// "simulate failure" path. Human correction is source of truth.
 import type { CurrencyCode } from "#/lib/types";
 
 export interface OcrResult {
 	amount?: number;
 	currency?: CurrencyCode;
 	date?: string;
-	merchantName?: string;
 	confidence?: number;
 	raw?: Record<string, unknown>;
-}
-
-const SAMPLE_MERCHANTS = [
-	"FairPrice",
-	"Cold Storage",
-	"Shell Station",
-	"Office Depot",
-	"Corner Cafe",
-	"City Pharmacy",
-	"Metro Hardware",
-	"Sunrise Bakery",
-];
-
-function pick<T>(arr: T[]): T {
-	return arr[Math.floor(Math.random() * arr.length)] as T;
 }
 
 function randomAmount(currency: CurrencyCode): number {
@@ -74,7 +58,6 @@ export function extractReceiptData(
 			}
 
 			const amount = randomAmount(opts.currency);
-			const merchantName = pick(SAMPLE_MERCHANTS);
 			const date = recentDateIso();
 			const confidence = Math.round((0.72 + Math.random() * 0.26) * 100) / 100;
 
@@ -82,12 +65,11 @@ export function extractReceiptData(
 				amount,
 				currency: opts.currency,
 				date,
-				merchantName,
 				confidence,
 				raw: {
 					status: "ok",
 					engine: "mock-ocr",
-					fields: { amount, merchantName, date },
+					fields: { amount, date },
 				},
 			});
 		}, delay);

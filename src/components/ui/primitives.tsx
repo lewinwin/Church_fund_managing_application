@@ -43,9 +43,9 @@ export function SectionCard({
 	return (
 		<Card className={cx("p-5", className)}>
 			{(title || action) && (
-				<div className="mb-4 flex items-center justify-between gap-3">
+				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 					{typeof title === "string" ? (
-						<h3 className="text-base font-semibold text-[var(--color-ink)]">
+						<h3 className="min-w-0 text-base font-semibold text-[var(--color-ink)]">
 							{title}
 						</h3>
 					) : (

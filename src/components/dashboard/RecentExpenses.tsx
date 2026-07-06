@@ -12,6 +12,7 @@ export function RecentExpenses({
 	limit = 6,
 	onSelect,
 	showBranch,
+	showUsd = true,
 }: {
 	expenses: Expense[];
 	categories: Category[];
@@ -19,6 +20,8 @@ export function RecentExpenses({
 	limit?: number;
 	onSelect?: (expense: Expense) => void;
 	showBranch?: boolean;
+	/** HQ views show USD; branch views (local currency) hide it. */
+	showUsd?: boolean;
 }) {
 	const rows = [...expenses]
 		.sort(
@@ -54,7 +57,7 @@ export function RecentExpenses({
 							</span>
 							<div className="min-w-0 flex-1">
 								<p className="truncate text-sm font-medium text-[var(--color-ink)]">
-									{e.merchantName}
+									{e.description}
 								</p>
 								<p className="truncate text-xs text-[var(--color-muted)]">
 									{showBranch && branch ? `${branch.name} · ` : ""}
@@ -67,12 +70,20 @@ export function RecentExpenses({
 								</p>
 							</div>
 							<div className="text-right">
-								<p className="text-sm font-semibold text-[var(--color-ink)]">
-									{formatUsd(e.usdAmount)}
-								</p>
-								<p className="text-xs text-[var(--color-muted)]">
-									{formatMoney(e.localAmount, e.localCurrency)}
-								</p>
+								{showUsd ? (
+									<>
+										<p className="text-sm font-semibold text-[var(--color-ink)]">
+											{formatUsd(e.usdAmount)}
+										</p>
+										<p className="text-xs text-[var(--color-muted)]">
+											{formatMoney(e.localAmount, e.localCurrency)}
+										</p>
+									</>
+								) : (
+									<p className="text-sm font-semibold text-[var(--color-ink)]">
+										{formatMoney(e.localAmount, e.localCurrency)}
+									</p>
+								)}
 							</div>
 						</button>
 					</li>

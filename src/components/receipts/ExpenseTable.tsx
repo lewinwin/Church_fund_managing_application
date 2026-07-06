@@ -14,12 +14,15 @@ export function ExpenseTable({
 	onSelect,
 	showBranchColumn,
 	branchName,
+	showUsd = true,
 }: {
 	expenses: Expense[];
 	categories: Category[];
 	onSelect: (expense: Expense) => void;
 	showBranchColumn?: (expense: Expense) => string;
 	branchName?: string;
+	/** HQ views show the USD column; branch views (local currency) hide it. */
+	showUsd?: boolean;
 }) {
 	const [query, setQuery] = useState("");
 	const [categoryId, setCategoryId] = useState("all");
@@ -30,7 +33,7 @@ export function ExpenseTable({
 			.filter((e) =>
 				categoryId === "all" ? true : e.categoryId === categoryId,
 			)
-			.filter((e) => (q ? e.merchantName.toLowerCase().includes(q) : true))
+			.filter((e) => (q ? e.description.toLowerCase().includes(q) : true))
 			.sort(
 				(a, b) =>
 					new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime(),
@@ -44,11 +47,11 @@ export function ExpenseTable({
 			render: (e) => formatDate(e.expenseDate),
 		},
 		{
-			key: "merchant",
-			header: "Merchant",
+			key: "description",
+			header: "Description",
 			render: (e) => (
 				<span className="font-medium text-[var(--color-ink)]">
-					{e.merchantName}
+					{e.description}
 				</span>
 			),
 		},
@@ -72,18 +75,26 @@ export function ExpenseTable({
 		},
 		{
 			key: "local",
-			header: "Local amount",
-			align: "right",
-			render: (e) => formatMoney(e.localAmount, e.localCurrency),
-		},
-		{
-			key: "usd",
-			header: "USD",
+			header: showUsd ? "Local amount" : "Amount",
 			align: "right",
 			render: (e) => (
-				<span className="font-semibold">{formatUsd(e.usdAmount)}</span>
+				<span className="font-semibold">
+					{formatMoney(e.localAmount, e.localCurrency)}
+				</span>
 			),
 		},
+		...(showUsd
+			? [
+					{
+						key: "usd",
+						header: "USD",
+						align: "right",
+						render: (e: Expense) => (
+							<span className="font-semibold">{formatUsd(e.usdAmount)}</span>
+						),
+					} satisfies Column<Expense>,
+				]
+			: []),
 	];
 
 	return (
@@ -96,7 +107,7 @@ export function ExpenseTable({
 					/>
 					<Input
 						className="pl-9"
-						placeholder="Search merchant…"
+						placeholder="Search description…"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 					/>

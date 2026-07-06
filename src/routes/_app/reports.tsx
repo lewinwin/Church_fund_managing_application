@@ -80,9 +80,9 @@ function ReportsPage() {
 	const columns: Column<Expense>[] = [
 		{ key: "date", header: "Date", render: (e) => formatDate(e.expenseDate) },
 		{
-			key: "merchant",
-			header: "Merchant",
-			render: (e) => <span className="font-medium">{e.merchantName}</span>,
+			key: "description",
+			header: "Description",
+			render: (e) => <span className="font-medium">{e.description}</span>,
 		},
 		...(isHq
 			? [
@@ -126,7 +126,7 @@ function ReportsPage() {
 	function buildCsvRows(): CsvRow[] {
 		return filtered.map((e) => ({
 			Date: e.expenseDate,
-			Merchant: e.merchantName,
+			Description: e.description,
 			Branch: branchName(e.branchId),
 			Category: categoryLabel(
 				data.categories,
@@ -160,10 +160,10 @@ function ReportsPage() {
 				{ label: "Receipts", value: String(filtered.length) },
 			],
 			{
-				columns: ["Date", "Merchant", "Branch", "Category", "Local", "USD"],
+				columns: ["Date", "Description", "Branch", "Category", "Local", "USD"],
 				rows: filtered.map((e) => [
 					e.expenseDate,
-					e.merchantName,
+					e.description,
 					branchName(e.branchId),
 					categoryLabel(data.categories, e.categoryId, e.otherSubcategoryId),
 					formatMoney(e.localAmount, e.localCurrency),

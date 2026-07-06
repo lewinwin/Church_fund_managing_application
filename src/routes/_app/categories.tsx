@@ -28,8 +28,8 @@ function CategoryRow({
 	onToggle: (id: string) => void;
 }) {
 	return (
-		<div className="flex items-center justify-between gap-3 border-b border-[var(--color-line)] py-3 last:border-0">
-			<div className="flex items-center gap-2.5">
+		<div className="flex flex-col gap-2 border-b border-[var(--color-line)] py-3 last:border-0 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex min-w-0 items-center gap-2.5">
 				<span className="font-medium text-[var(--color-ink)]">
 					{category.name}
 				</span>
@@ -39,7 +39,7 @@ function CategoryRow({
 					<Badge tone="neutral">Inactive</Badge>
 				)}
 			</div>
-			<div className="flex items-center gap-1">
+			<div className="flex shrink-0 items-center gap-1">
 				<Button variant="ghost" onClick={() => onEdit(category)}>
 					<Pencil size={14} /> Rename
 				</Button>

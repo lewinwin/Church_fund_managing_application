@@ -5,19 +5,28 @@ import {
 } from "#/components/charts/DonutChart";
 import { EmptyState, SectionCard } from "#/components/ui/primitives";
 import { spendByCategory } from "#/lib/calc";
-import { formatUsd } from "#/lib/format";
-import type { Category, Expense } from "#/lib/types";
+import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatMoney, formatUsd } from "#/lib/format";
+import type { Category, CurrencyCode, Expense } from "#/lib/types";
 
-// Expense-by-category donut + legend. Amounts are always shown in USD.
+// Expense-by-category donut + legend. HQ views show USD; branch views pass
+// displayCurrency to show local amounts (proportions are identical).
 export function CategoryDonutCard({
 	expenses,
 	categories,
 	title = "Expense by category",
+	displayCurrency,
 }: {
 	expenses: Expense[];
 	categories: Category[];
 	title?: string;
+	displayCurrency?: CurrencyCode;
 }) {
+	const isLocal = displayCurrency != null && displayCurrency !== "USD";
+	const fmt = (usd: number) =>
+		isLocal
+			? formatMoney(usdToLocal(usd, displayCurrency), displayCurrency)
+			: formatUsd(usd);
 	const slices = spendByCategory(expenses, categories).map((s, i) => ({
 		label: s.label,
 		value: s.usd,
@@ -37,15 +46,11 @@ export function CategoryDonutCard({
 					<div className="flex flex-col items-center gap-6 @md:flex-row @md:items-center">
 						<DonutChart
 							slices={slices}
-							centerValue={formatUsd(total)}
+							centerValue={fmt(total)}
 							centerLabel="total"
 						/>
 						<div className="w-full min-w-0 flex-1">
-							<DonutLegend
-								slices={slices}
-								total={total}
-								formatValue={formatUsd}
-							/>
+							<DonutLegend slices={slices} total={total} formatValue={fmt} />
 						</div>
 					</div>
 				</div>

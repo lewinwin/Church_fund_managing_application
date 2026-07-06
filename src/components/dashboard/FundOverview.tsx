@@ -1,9 +1,11 @@
 import { Card, ProgressBar, StatusPill } from "#/components/ui/primitives";
-import { formatPercent, formatUsd } from "#/lib/format";
-import type { BalanceStatus } from "#/lib/types";
+import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatMoney, formatPercent, formatUsd } from "#/lib/format";
+import type { BalanceStatus, CurrencyCode } from "#/lib/types";
 
 // Released / Spent / Remaining with a usage bar. Reused across the branch
-// dashboard, HQ dashboard and branch detail.
+// dashboard, HQ dashboard and branch detail. HQ views leave displayCurrency
+// unset (USD); branch views pass their local currency to show local figures.
 export function FundOverview({
 	title,
 	releasedUsd,
@@ -12,6 +14,7 @@ export function FundOverview({
 	percentUsed,
 	status,
 	localLine,
+	displayCurrency,
 }: {
 	title: string;
 	releasedUsd: number;
@@ -20,9 +23,16 @@ export function FundOverview({
 	percentUsed: number;
 	status?: BalanceStatus;
 	localLine?: string;
+	displayCurrency?: CurrencyCode;
 }) {
 	const barTone =
 		status === "low" ? "red" : status === "warning" ? "amber" : "forest";
+
+	const isLocal = displayCurrency != null && displayCurrency !== "USD";
+	const fmt = (usd: number) =>
+		isLocal
+			? formatMoney(usdToLocal(usd, displayCurrency), displayCurrency)
+			: formatUsd(usd);
 
 	return (
 		<Card className="p-5">
@@ -34,18 +44,18 @@ export function FundOverview({
 			<div className="mt-4 grid grid-cols-3 gap-3">
 				<div>
 					<p className="text-xs text-[var(--color-muted)]">Released</p>
-					<p className="mt-1 text-lg font-bold">{formatUsd(releasedUsd)}</p>
+					<p className="mt-1 text-lg font-bold">{fmt(releasedUsd)}</p>
 				</div>
 				<div>
 					<p className="text-xs text-[var(--color-muted)]">Spent</p>
 					<p className="mt-1 text-lg font-bold text-[var(--color-negative)]">
-						{formatUsd(spentUsd)}
+						{fmt(spentUsd)}
 					</p>
 				</div>
 				<div>
 					<p className="text-xs text-[var(--color-muted)]">Remaining</p>
 					<p className="mt-1 text-lg font-bold text-[var(--color-positive)]">
-						{formatUsd(remainingUsd)}
+						{fmt(remainingUsd)}
 					</p>
 				</div>
 			</div>

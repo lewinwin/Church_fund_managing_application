@@ -13,7 +13,8 @@ import {
 	expensesForBranch,
 	remainingLocal,
 } from "#/lib/calc";
-import { formatMoney, formatUsd } from "#/lib/format";
+import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatMoney } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { Branch, Expense } from "#/lib/types";
 
@@ -24,36 +25,33 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 	const fin = branchFinancials(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
-	const remLocal = remainingLocal(data, branch.id, branch.localCurrency);
+	const cur = branch.localCurrency;
+	const remLocal = remainingLocal(data, branch.id, cur);
+	const releasedLocal = usdToLocal(fin.releasedUsd, cur);
+	const spentLocal = usdToLocal(fin.spentUsd, cur);
 
 	return (
 		<div className="space-y-5">
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 				<StatCard
 					label="Total released"
-					value={formatUsd(fin.releasedUsd)}
+					value={formatMoney(releasedLocal, cur)}
 					icon={<Wallet size={17} />}
 					sub="Funds received from HQ"
 				/>
 				<StatCard
 					label="Total spent"
-					value={formatUsd(fin.spentUsd)}
+					value={formatMoney(spentLocal, cur)}
 					accent="red"
 					icon={<ArrowUpRight size={17} />}
 					sub={`${expenses.length} receipts`}
 				/>
 				<StatCard
-					label="Remaining (USD)"
-					value={formatUsd(fin.remainingUsd)}
+					label="Remaining"
+					value={formatMoney(remLocal, cur)}
 					accent="lime"
 					icon={<ArrowDownRight size={17} />}
 					sub="Available to spend"
-				/>
-				<StatCard
-					label="Remaining (local)"
-					value={formatMoney(remLocal, branch.localCurrency)}
-					icon={<Wallet size={17} />}
-					sub={`Displayed at current ${branch.localCurrency} rate`}
 				/>
 			</div>
 
@@ -66,10 +64,8 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 						remainingUsd={fin.remainingUsd}
 						percentUsed={fin.percentUsed}
 						status={fin.status}
-						localLine={`Balance in local currency: ${formatMoney(
-							remLocal,
-							branch.localCurrency,
-						)}. Historical USD amounts are never recalculated.`}
+						displayCurrency={cur}
+						localLine={`All figures shown in ${cur} at the current exchange rate.`}
 					/>
 
 					<SectionCard
@@ -85,6 +81,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 							categories={data.categories}
 							branches={data.branches}
 							onSelect={setSelected}
+							showUsd={false}
 						/>
 					</SectionCard>
 				</div>
@@ -125,6 +122,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 						<CategoryDonutCard
 							expenses={expenses}
 							categories={data.categories}
+							displayCurrency={cur}
 						/>
 					)}
 				</div>
@@ -136,6 +134,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 				branches={data.branches}
 				users={data.users}
 				onClose={() => setSelected(null)}
+				showUsd={false}
 			/>
 		</div>
 	);

@@ -28,12 +28,15 @@ export function ExpenseDetailDrawer({
 	branches,
 	users,
 	onClose,
+	showUsd = true,
 }: {
 	expense: Expense | null;
 	categories: Category[];
 	branches: Branch[];
 	users: User[];
 	onClose: () => void;
+	/** HQ views show USD + exchange rate; branch views (local only) hide them. */
+	showUsd?: boolean;
 }) {
 	const branch = expense
 		? branches.find((b) => b.id === expense.branchId)
@@ -47,9 +50,13 @@ export function ExpenseDetailDrawer({
 			{expense && (
 				<div className="space-y-5">
 					<div>
-						<div className="mb-2 flex items-center justify-between">
-							<h4 className="text-lg font-bold">{expense.merchantName}</h4>
-							<Badge tone="lime">{formatUsd(expense.usdAmount)}</Badge>
+						<div className="mb-2 flex items-center justify-between gap-3">
+							<h4 className="text-lg font-bold">{expense.description}</h4>
+							<Badge tone="lime">
+								{showUsd
+									? formatUsd(expense.usdAmount)
+									: formatMoney(expense.localAmount, expense.localCurrency)}
+							</Badge>
 						</div>
 						<ReceiptPreview
 							dataUrl={expense.receiptDataUrl}
@@ -67,13 +74,17 @@ export function ExpenseDetailDrawer({
 								expense.otherSubcategoryId,
 							)}
 						</Row>
-						<Row label="Local amount">
+						<Row label={showUsd ? "Local amount" : "Amount"}>
 							{formatMoney(expense.localAmount, expense.localCurrency)}
 						</Row>
-						<Row label="Exchange rate">
-							1 {expense.localCurrency} = {expense.exchangeRateToUsd} USD
-						</Row>
-						<Row label="USD equivalent">{formatUsd(expense.usdAmount)}</Row>
+						{showUsd && (
+							<Row label="Exchange rate">
+								1 {expense.localCurrency} = {expense.exchangeRateToUsd} USD
+							</Row>
+						)}
+						{showUsd && (
+							<Row label="USD equivalent">{formatUsd(expense.usdAmount)}</Row>
+						)}
 						<Row label="Submitted by">{submitter?.name ?? "—"}</Row>
 						<Row label="Submitted at">{formatDateTime(expense.createdAt)}</Row>
 						<Row label="OCR confidence">
@@ -83,10 +94,12 @@ export function ExpenseDetailDrawer({
 						</Row>
 					</div>
 
-					<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
-						Exchange rate was snapshotted at entry time and is never
-						recalculated when rates change.
-					</p>
+					{showUsd && (
+						<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
+							Exchange rate was snapshotted at entry time and is never
+							recalculated when rates change.
+						</p>
+					)}
 				</div>
 			)}
 		</Drawer>

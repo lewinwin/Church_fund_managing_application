@@ -41,7 +41,8 @@ export interface Expense {
 	id: string;
 	branchId: string;
 	submittedByUserId: string;
-	merchantName: string;
+	/** Free-text detail of what the expense was for (replaces merchant name). */
+	description: string;
 	/** ISO date (YYYY-MM-DD) of the receipt. */
 	expenseDate: string;
 	localAmount: number;
