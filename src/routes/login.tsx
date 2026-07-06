@@ -110,11 +110,32 @@ function LoginPage() {
 			{/* Form panel */}
 			<div className="flex items-center justify-center bg-[var(--color-canvas)] px-5 py-10">
 				<div className="w-full max-w-sm">
-					<div className="mb-8 flex items-center gap-2.5 lg:hidden">
-						<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-forest-800)] text-[var(--color-lime-400)]">
-							<Coins size={20} />
-						</span>
-						<span className="font-bold">611 Petty Cash</span>
+					{/* Mobile church hero — desktop uses the full-height brand panel. */}
+					<div className="relative mb-6 overflow-hidden rounded-2xl bg-[var(--color-forest-900)] lg:hidden">
+						<img
+							src="/church.jpg"
+							alt=""
+							aria-hidden="true"
+							onError={(e) => {
+								e.currentTarget.style.display = "none";
+							}}
+							className="h-36 w-full object-cover"
+						/>
+						<div
+							className="absolute inset-0"
+							style={{
+								background:
+									"linear-gradient(180deg, rgba(18,53,43,0.30) 0%, rgba(18,53,43,0.80) 100%)",
+							}}
+						/>
+						<div className="absolute inset-0 flex flex-col justify-end p-4">
+							<div className="flex items-center gap-2 text-white">
+								<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-lime-400)] text-[var(--color-forest-900)]">
+									<Coins size={18} />
+								</span>
+								<span className="font-bold">611 Petty Cash</span>
+							</div>
+						</div>
 					</div>
 
 					<h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
