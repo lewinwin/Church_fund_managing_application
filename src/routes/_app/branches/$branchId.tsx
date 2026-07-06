@@ -6,7 +6,7 @@ import { FundOverview } from "#/components/dashboard/FundOverview";
 import { EditPlanModal } from "#/components/funding/EditPlanModal";
 import { FundReleaseModal } from "#/components/funding/FundReleaseModal";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
-import { ExpenseTable } from "#/components/receipts/ExpenseTable";
+import { GroupedExpenseList } from "#/components/receipts/GroupedExpenseList";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import {
 	Badge,
@@ -169,19 +169,13 @@ function BranchDetailPage() {
 			</SectionCard>
 
 			<SectionCard title="Expenses">
-				{expenses.length === 0 ? (
-					<EmptyState
-						title="No expenses yet"
-						description="This branch hasn't submitted any receipts."
-					/>
-				) : (
-					<ExpenseTable
-						expenses={expenses}
-						categories={data.categories}
-						onSelect={setSelected}
-						branchName={branch.name}
-					/>
-				)}
+				<GroupedExpenseList
+					expenses={expenses}
+					categories={data.categories}
+					currency={branch.localCurrency}
+					showUsd
+					onSelect={setSelected}
+				/>
 			</SectionCard>
 
 			<ExpenseDetailDrawer

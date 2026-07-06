@@ -2,24 +2,33 @@ import { ChevronDown, ChevronRight, Receipt } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState, Select } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
-import { formatMoney } from "#/lib/format";
+import { formatMoney, formatUsd } from "#/lib/format";
 import type { Category, CurrencyCode, Expense } from "#/lib/types";
 
 // Reference-style accordion: Month → Day → Transactions, each level showing a
-// total. Branch view only, so amounts are in local currency. Choosing a month
-// shows its days; "All months" lists months collapsed until tapped.
+// total. Branch views total in local currency; HQ branch-detail passes
+// showUsd to total in USD. Choosing a month shows its days; "All months"
+// lists months collapsed until tapped.
 export function GroupedExpenseList({
 	expenses,
 	categories,
 	currency,
 	onSelect,
+	showUsd = false,
 }: {
 	expenses: Expense[];
 	categories: Category[];
 	currency: CurrencyCode;
 	onSelect: (expense: Expense) => void;
+	/** HQ branch-detail passes true to total in USD; branch views use local. */
+	showUsd?: boolean;
 }) {
-	const months = useMemo(() => groupByMonth(expenses), [expenses]);
+	const months = useMemo(
+		() => groupByMonth(expenses, showUsd),
+		[expenses, showUsd],
+	);
+	const fmt = (n: number) =>
+		showUsd ? formatUsd(n) : formatMoney(n, currency);
 
 	const [monthFilter, setMonthFilter] = useState("all");
 	const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
@@ -40,7 +49,7 @@ export function GroupedExpenseList({
 			<EmptyState
 				icon={<Receipt size={20} />}
 				title="No receipts yet"
-				description="Upload your first receipt to start tracking spending."
+				description="Receipts will appear here, grouped by month and day."
 			/>
 		);
 	}
@@ -81,7 +90,7 @@ export function GroupedExpenseList({
 								<span className="truncate">{formatMonth(month.ym)}</span>
 							</span>
 							<span className="shrink-0 font-bold text-[var(--color-negative)]">
-								−{formatMoney(month.total, currency)}
+								−{fmt(month.total)}
 							</span>
 						</button>
 
@@ -108,7 +117,7 @@ export function GroupedExpenseList({
 												</span>
 											</span>
 											<span className="shrink-0 text-sm font-semibold text-[var(--color-negative)]">
-												−{formatMoney(day.total, currency)}
+												−{fmt(day.total)}
 											</span>
 										</button>
 
@@ -133,7 +142,7 @@ export function GroupedExpenseList({
 														</span>
 													</span>
 													<span className="shrink-0 text-sm font-semibold text-[var(--color-negative)]">
-														−{formatMoney(e.localAmount, currency)}
+														−{fmt(showUsd ? e.usdAmount : e.localAmount)}
 													</span>
 												</button>
 											))}
@@ -169,7 +178,7 @@ interface MonthGroup {
 	days: DayGroup[];
 }
 
-function groupByMonth(expenses: Expense[]): MonthGroup[] {
+function groupByMonth(expenses: Expense[], showUsd: boolean): MonthGroup[] {
 	const byMonth = new Map<string, Expense[]>();
 	for (const e of expenses) {
 		const ym = e.expenseDate.slice(0, 7); // YYYY-MM
@@ -192,15 +201,15 @@ function groupByMonth(expenses: Expense[]): MonthGroup[] {
 				.sort((a, b) => (a[0] < b[0] ? 1 : -1))
 				.map(([day, dl]) => ({
 					day,
-					total: sumLocal(dl),
+					total: sumAmount(dl, showUsd),
 					items: [...dl].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
 				}));
-			return { ym, total: sumLocal(list), days };
+			return { ym, total: sumAmount(list, showUsd), days };
 		});
 }
 
-function sumLocal(list: Expense[]): number {
-	return list.reduce((s, e) => s + e.localAmount, 0);
+function sumAmount(list: Expense[], showUsd: boolean): number {
+	return list.reduce((s, e) => s + (showUsd ? e.usdAmount : e.localAmount), 0);
 }
 
 function formatMonth(ym: string): string {
