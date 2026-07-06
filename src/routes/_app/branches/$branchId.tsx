@@ -1,5 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, PlusCircle, Settings2 } from "lucide-react";
+import {
+	ArrowDownRight,
+	ArrowLeft,
+	ArrowUpRight,
+	PlusCircle,
+	Settings2,
+	Wallet,
+} from "lucide-react";
 import { useState } from "react";
 import { CategoryDonutCard } from "#/components/dashboard/CategoryDonutCard";
 import { FundOverview } from "#/components/dashboard/FundOverview";
@@ -123,20 +130,27 @@ function BranchDetailPage() {
 			    KPIs on top via order utilities. */}
 			<div className="flex flex-col gap-5">
 				<div className="order-2 grid grid-cols-2 gap-4 lg:order-1 xl:grid-cols-4">
-					<StatCard label="Released" value={formatUsd(fin.releasedUsd)} />
+					<StatCard
+						label="Released"
+						value={formatUsd(fin.releasedUsd)}
+						icon={<Wallet size={17} />}
+					/>
 					<StatCard
 						label="Spent"
 						value={formatUsd(fin.spentUsd)}
 						accent="red"
+						icon={<ArrowUpRight size={17} />}
 					/>
 					<StatCard
 						label="Remaining (USD)"
 						value={formatUsd(fin.remainingUsd)}
 						accent="lime"
+						icon={<ArrowDownRight size={17} />}
 					/>
 					<StatCard
 						label="Remaining (local)"
 						value={formatMoney(remLocal, branch.localCurrency)}
+						icon={<Wallet size={17} />}
 					/>
 				</div>
 

@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, Receipt } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState, Select } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
-import { formatMoney, formatUsd } from "#/lib/format";
+import { formatAmount } from "#/lib/format";
 import type { Category, CurrencyCode, Expense } from "#/lib/types";
 
 // Reference-style accordion: Month → Day → Transactions, each level showing a
@@ -27,8 +27,8 @@ export function GroupedExpenseList({
 		() => groupByMonth(expenses, showUsd),
 		[expenses, showUsd],
 	);
-	const fmt = (n: number) =>
-		showUsd ? formatUsd(n) : formatMoney(n, currency);
+	const unit: CurrencyCode = showUsd ? "USD" : currency;
+	const fmt = (n: number) => formatAmount(n, unit);
 
 	const [monthFilter, setMonthFilter] = useState("all");
 	const [openMonths, setOpenMonths] = useState<Set<string>>(new Set());
@@ -59,18 +59,23 @@ export function GroupedExpenseList({
 
 	return (
 		<div className="space-y-3">
-			<Select
-				className="sm:w-56"
-				value={monthFilter}
-				onChange={(e) => setMonthFilter(e.target.value)}
-			>
-				<option value="all">All months</option>
-				{months.map((m) => (
-					<option key={m.ym} value={m.ym}>
-						{formatMonth(m.ym)}
-					</option>
-				))}
-			</Select>
+			<div className="flex items-center justify-between gap-3">
+				<Select
+					className="sm:w-56"
+					value={monthFilter}
+					onChange={(e) => setMonthFilter(e.target.value)}
+				>
+					<option value="all">All months</option>
+					{months.map((m) => (
+						<option key={m.ym} value={m.ym}>
+							{formatMonth(m.ym)}
+						</option>
+					))}
+				</Select>
+				<span className="shrink-0 text-xs text-[var(--color-muted)]">
+					Amounts in {unit}
+				</span>
+			</div>
 
 			{visible.map((month) => {
 				// A specific month filter keeps its days open; "all" starts collapsed.
