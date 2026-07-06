@@ -119,39 +119,47 @@ function BranchDetailPage() {
 				</div>
 			</div>
 
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<StatCard label="Released" value={formatUsd(fin.releasedUsd)} />
-				<StatCard label="Spent" value={formatUsd(fin.spentUsd)} accent="red" />
-				<StatCard
-					label="Remaining (USD)"
-					value={formatUsd(fin.remainingUsd)}
-					accent="lime"
-				/>
-				<StatCard
-					label="Remaining (local)"
-					value={formatMoney(remLocal, branch.localCurrency)}
-				/>
-			</div>
-
-			<div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-				<div className="lg:col-span-2">
-					<FundOverview
-						title="Fund balance"
-						releasedUsd={fin.releasedUsd}
-						spentUsd={fin.spentUsd}
-						remainingUsd={fin.remainingUsd}
-						percentUsed={fin.percentUsed}
-						status={fin.status}
-						localLine={
-							plan
-								? `Active plan: ${plan.description} · Target ${formatUsd(
-										plan.totalTargetUsd,
-									)}`
-								: "No active funding plan for this branch."
-						}
+			{/* Mobile: fund balance first, then compact 2-col KPIs. Desktop keeps
+			    KPIs on top via order utilities. */}
+			<div className="flex flex-col gap-5">
+				<div className="order-2 grid grid-cols-2 gap-4 lg:order-1 xl:grid-cols-4">
+					<StatCard label="Released" value={formatUsd(fin.releasedUsd)} />
+					<StatCard
+						label="Spent"
+						value={formatUsd(fin.spentUsd)}
+						accent="red"
+					/>
+					<StatCard
+						label="Remaining (USD)"
+						value={formatUsd(fin.remainingUsd)}
+						accent="lime"
+					/>
+					<StatCard
+						label="Remaining (local)"
+						value={formatMoney(remLocal, branch.localCurrency)}
 					/>
 				</div>
-				<CategoryDonutCard expenses={expenses} categories={data.categories} />
+
+				<div className="order-1 grid grid-cols-1 gap-5 lg:order-2 lg:grid-cols-3">
+					<div className="lg:col-span-2">
+						<FundOverview
+							title="Fund balance"
+							releasedUsd={fin.releasedUsd}
+							spentUsd={fin.spentUsd}
+							remainingUsd={fin.remainingUsd}
+							percentUsed={fin.percentUsed}
+							status={fin.status}
+							localLine={
+								plan
+									? `Active plan: ${plan.description} · Target ${formatUsd(
+											plan.totalTargetUsd,
+										)}`
+									: "No active funding plan for this branch."
+							}
+						/>
+					</div>
+					<CategoryDonutCard expenses={expenses} categories={data.categories} />
+				</div>
 			</div>
 
 			<SectionCard title="Fund release history">
