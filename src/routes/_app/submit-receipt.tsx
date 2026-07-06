@@ -158,7 +158,7 @@ function SubmitReceiptPage() {
 					{description} · {localPreview} was added to {branch.name}. Your
 					dashboard and receipts list have been updated.
 				</p>
-				<div className="mt-6 flex justify-center gap-2">
+				<div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
 					<Button onClick={() => navigate({ to: "/expenses" })}>
 						View my receipts
 					</Button>
