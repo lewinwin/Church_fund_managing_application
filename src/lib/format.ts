@@ -26,6 +26,16 @@ export function formatMoney(amount: number, currency: CurrencyCode): string {
 	}
 }
 
+/** Number only, no currency symbol, with the currency's usual decimals.
+ *  Used where the unit is shown once elsewhere (e.g. the fund-balance card). */
+export function formatAmount(amount: number, currency: CurrencyCode): string {
+	const fractionDigits = ZERO_DECIMAL.includes(currency) ? 0 : 2;
+	return new Intl.NumberFormat("en-US", {
+		minimumFractionDigits: fractionDigits,
+		maximumFractionDigits: fractionDigits,
+	}).format(amount);
+}
+
 export function formatUsd(amount: number): string {
 	return new Intl.NumberFormat("en-US", {
 		style: "currency",
