@@ -9,6 +9,10 @@ import type { Category, CurrencyCode, Expense } from "#/lib/types";
 // total. Branch views total in local currency; HQ branch-detail passes
 // showUsd to total in USD. Choosing a month shows its days; "All months"
 // lists months collapsed until tapped.
+//
+// Visual hierarchy so subtotals never blur into line items: month/day totals
+// are neutral-dark + bold ("this is a sum"); individual receipts are red
+// ("this is one expense"). Colour alone distinguishes a total from a receipt.
 export function GroupedExpenseList({
 	expenses,
 	categories,
@@ -94,7 +98,7 @@ export function GroupedExpenseList({
 								<Chevron open={monthOpen} />
 								<span className="truncate">{formatMonth(month.ym)}</span>
 							</span>
-							<span className="shrink-0 font-bold text-[var(--color-negative)]">
+							<span className="shrink-0 font-bold text-[var(--color-ink)]">
 								−{fmt(month.total)}
 							</span>
 						</button>
@@ -121,7 +125,7 @@ export function GroupedExpenseList({
 													· {day.items.length}
 												</span>
 											</span>
-											<span className="shrink-0 text-sm font-semibold text-[var(--color-negative)]">
+											<span className="shrink-0 text-sm font-bold text-[var(--color-ink)]">
 												−{fmt(day.total)}
 											</span>
 										</button>
@@ -146,7 +150,7 @@ export function GroupedExpenseList({
 															)}
 														</span>
 													</span>
-													<span className="shrink-0 text-sm font-semibold text-[var(--color-negative)]">
+													<span className="shrink-0 text-sm font-medium text-[var(--color-negative)]">
 														−{fmt(showUsd ? e.usdAmount : e.localAmount)}
 													</span>
 												</button>
