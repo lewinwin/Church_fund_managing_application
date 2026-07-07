@@ -1,6 +1,7 @@
-// AppData React context — the in-memory mirror of localStorage that the whole
-// UI reads and mutates. Every write persists to localStorage and updates state
-// so all views re-render consistently.
+// AppData store, now backed by Postgres via server functions. Loads the
+// caller's allowed data on login and refetches after each mutation. The
+// useStore() shape is unchanged from W1, so components barely change — they
+// just observe async loading (gated by `hydrated`).
 import {
 	createContext,
 	type ReactNode,
@@ -10,8 +11,19 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { buildSeedData } from "#/data/seed";
-import { newId } from "#/lib/id";
+import { useAuth } from "#/lib/auth/auth";
+import {
+	bootstrapFn,
+	createCategoryFn,
+	createFundingPlanFn,
+	createUserFn,
+	recordFundReleaseFn,
+	submitExpenseFn,
+	toggleCategoryActiveFn,
+	updateCategoryFn,
+	updateFundingPlanFn,
+	updateUserFn,
+} from "#/lib/server/fns";
 import type {
 	AppData,
 	Category,
@@ -21,204 +33,185 @@ import type {
 	Role,
 	User,
 } from "#/lib/types";
-import { loadData, resetData, saveData } from "./persistence";
 
 export type NewExpense = Omit<Expense, "id" | "createdAt">;
 export type NewFundingPlan = Omit<FundingPlan, "id" | "createdAt">;
 export type NewFundRelease = Omit<FundRelease, "id" | "createdAt">;
 
+const EMPTY: AppData = {
+	branches: [],
+	users: [],
+	categories: [],
+	expenses: [],
+	fundingPlans: [],
+	fundReleases: [],
+};
+
 interface StoreContextValue {
 	data: AppData;
 	hydrated: boolean;
-	addExpense: (input: NewExpense) => Expense;
-	addFundingPlan: (input: NewFundingPlan) => FundingPlan;
-	updateFundingPlan: (id: string, patch: Partial<FundingPlan>) => void;
-	addFundRelease: (input: NewFundRelease) => FundRelease;
-	addCategory: (input: { name: string; parentId: string | null }) => Category;
-	updateCategory: (id: string, patch: Partial<Category>) => void;
-	toggleCategoryActive: (id: string) => void;
+	addExpense: (input: NewExpense) => Promise<void>;
+	addFundingPlan: (input: NewFundingPlan) => Promise<void>;
+	updateFundingPlan: (id: string, patch: Partial<FundingPlan>) => Promise<void>;
+	addFundRelease: (input: NewFundRelease) => Promise<void>;
+	addCategory: (input: {
+		name: string;
+		parentId: string | null;
+	}) => Promise<void>;
+	updateCategory: (id: string, patch: Partial<Category>) => Promise<void>;
+	toggleCategoryActive: (id: string) => Promise<void>;
 	addUser: (input: {
 		name: string;
 		email: string;
 		role: Role;
 		branchId: string | null;
-	}) => User;
-	updateUser: (id: string, patch: Partial<User>) => void;
-	resetDemo: () => void;
+	}) => Promise<void>;
+	updateUser: (id: string, patch: Partial<User>) => Promise<void>;
+	resetDemo: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-	// Initialise with seed so SSR + first client render match; hydrate on mount.
-	const [data, setData] = useState<AppData>(() => buildSeedData());
+	const { user, ready: authReady } = useAuth();
+	const [data, setData] = useState<AppData>(EMPTY);
 	const [hydrated, setHydrated] = useState(false);
 
+	const refresh = useCallback(async () => {
+		if (!user) {
+			setData(EMPTY);
+			return;
+		}
+		const next = await bootstrapFn();
+		setData(next ?? EMPTY);
+	}, [user]);
+
+	// Load (or clear) data whenever the authenticated user changes.
 	useEffect(() => {
-		setData(loadData());
-		setHydrated(true);
-	}, []);
+		if (!authReady) return;
+		setHydrated(false);
+		refresh().finally(() => setHydrated(true));
+	}, [authReady, refresh]);
 
-	const commit = useCallback((next: AppData) => {
-		setData(next);
-		saveData(next);
-	}, []);
-
-	const addExpense = useCallback<StoreContextValue["addExpense"]>((input) => {
-		const expense: Expense = {
-			...input,
-			id: newId("exp"),
-			createdAt: new Date().toISOString(),
-		};
-		setData((prev) => {
-			const next = { ...prev, expenses: [expense, ...prev.expenses] };
-			saveData(next);
-			return next;
-		});
-		return expense;
-	}, []);
+	const addExpense = useCallback<StoreContextValue["addExpense"]>(
+		async (input) => {
+			await submitExpenseFn({
+				data: {
+					description: input.description,
+					expenseDate: input.expenseDate,
+					localAmount: input.localAmount,
+					localCurrency: input.localCurrency,
+					exchangeRateToUsd: input.exchangeRateToUsd,
+					usdAmount: input.usdAmount,
+					categoryId: input.categoryId,
+					otherSubcategoryId: input.otherSubcategoryId,
+					receiptFileName: input.receiptFileName,
+					receiptDataUrl: input.receiptDataUrl,
+					ocrConfidence: input.ocrConfidence,
+				},
+			});
+			await refresh();
+		},
+		[refresh],
+	);
 
 	const addFundingPlan = useCallback<StoreContextValue["addFundingPlan"]>(
-		(input) => {
-			const plan: FundingPlan = {
-				...input,
-				id: newId("fp"),
-				createdAt: new Date().toISOString(),
-			};
-			setData((prev) => {
-				const next = {
-					...prev,
-					fundingPlans: [plan, ...prev.fundingPlans],
-				};
-				saveData(next);
-				return next;
-			});
-			return plan;
+		async (input) => {
+			await createFundingPlanFn({ data: input });
+			await refresh();
 		},
-		[],
+		[refresh],
 	);
 
 	const updateFundingPlan = useCallback<StoreContextValue["updateFundingPlan"]>(
-		(id, patch) => {
-			setData((prev) => {
-				const next = {
-					...prev,
-					fundingPlans: prev.fundingPlans.map((p) =>
-						p.id === id ? { ...p, ...patch } : p,
-					),
-				};
-				saveData(next);
-				return next;
+		async (id, patch) => {
+			await updateFundingPlanFn({
+				data: {
+					id,
+					patch: {
+						totalTargetUsd: patch.totalTargetUsd,
+						description: patch.description,
+						status: patch.status,
+					},
+				},
 			});
+			await refresh();
 		},
-		[],
+		[refresh],
 	);
 
 	const addFundRelease = useCallback<StoreContextValue["addFundRelease"]>(
-		(input) => {
-			const release: FundRelease = {
-				...input,
-				id: newId("fr"),
-				createdAt: new Date().toISOString(),
-			};
-			setData((prev) => {
-				const next = {
-					...prev,
-					fundReleases: [release, ...prev.fundReleases],
-				};
-				saveData(next);
-				return next;
+		async (input) => {
+			await recordFundReleaseFn({
+				data: {
+					fundingPlanId: input.fundingPlanId,
+					branchId: input.branchId,
+					amountUsd: input.amountUsd,
+					releaseDate: input.releaseDate,
+					note: input.note,
+				},
 			});
-			return release;
+			await refresh();
 		},
-		[],
+		[refresh],
 	);
 
-	const addCategory = useCallback<StoreContextValue["addCategory"]>((input) => {
-		const category: Category = {
-			id: newId(input.parentId ? "sub" : "cat"),
-			name: input.name,
-			parentId: input.parentId,
-			active: true,
-			createdAt: new Date().toISOString(),
-		};
-		setData((prev) => {
-			const next = {
-				...prev,
-				categories: [...prev.categories, category],
-			};
-			saveData(next);
-			return next;
-		});
-		return category;
-	}, []);
+	const addCategory = useCallback<StoreContextValue["addCategory"]>(
+		async (input) => {
+			await createCategoryFn({ data: input });
+			await refresh();
+		},
+		[refresh],
+	);
 
 	const updateCategory = useCallback<StoreContextValue["updateCategory"]>(
-		(id, patch) => {
-			setData((prev) => {
-				const next = {
-					...prev,
-					categories: prev.categories.map((c) =>
-						c.id === id ? { ...c, ...patch } : c,
-					),
-				};
-				saveData(next);
-				return next;
+		async (id, patch) => {
+			await updateCategoryFn({
+				data: { id, patch: { name: patch.name, active: patch.active } },
 			});
+			await refresh();
 		},
-		[],
+		[refresh],
 	);
 
 	const toggleCategoryActive = useCallback<
 		StoreContextValue["toggleCategoryActive"]
-	>((id) => {
-		setData((prev) => {
-			const next = {
-				...prev,
-				categories: prev.categories.map((c) =>
-					c.id === id ? { ...c, active: !c.active } : c,
-				),
-			};
-			saveData(next);
-			return next;
-		});
-	}, []);
-
-	const addUser = useCallback<StoreContextValue["addUser"]>((input) => {
-		const user: User = {
-			id: newId("u"),
-			name: input.name,
-			email: input.email,
-			password: "demo123",
-			role: input.role,
-			branchId: input.role === "hq_admin" ? null : input.branchId,
-			createdAt: new Date().toISOString(),
-		};
-		setData((prev) => {
-			const next = { ...prev, users: [...prev.users, user] };
-			saveData(next);
-			return next;
-		});
-		return user;
-	}, []);
-
-	const updateUser = useCallback<StoreContextValue["updateUser"]>(
-		(id, patch) => {
-			setData((prev) => {
-				const next = {
-					...prev,
-					users: prev.users.map((u) => (u.id === id ? { ...u, ...patch } : u)),
-				};
-				saveData(next);
-				return next;
-			});
+	>(
+		async (id) => {
+			await toggleCategoryActiveFn({ data: { id } });
+			await refresh();
 		},
-		[],
+		[refresh],
 	);
 
-	const resetDemo = useCallback(() => {
-		commit(resetData());
-	}, [commit]);
+	const addUser = useCallback<StoreContextValue["addUser"]>(
+		async (input) => {
+			await createUserFn({ data: input });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const updateUser = useCallback<StoreContextValue["updateUser"]>(
+		async (id, patch) => {
+			await updateUserFn({
+				data: {
+					id,
+					patch: {
+						name: patch.name,
+						role: patch.role,
+						branchId: patch.branchId,
+					},
+				},
+			});
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const resetDemo = useCallback<StoreContextValue["resetDemo"]>(async () => {
+		await refresh();
+	}, [refresh]);
 
 	const value = useMemo<StoreContextValue>(
 		() => ({

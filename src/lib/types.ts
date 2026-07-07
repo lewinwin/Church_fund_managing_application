@@ -9,6 +9,15 @@ export type FundingPlanStatus = "active" | "closed" | "cancelled";
 
 export type BalanceStatus = "healthy" | "warning" | "low";
 
+/** JSON-serializable value (safe to send across the server-function boundary). */
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| JsonValue[]
+	| { [key: string]: JsonValue };
+
 export interface Branch {
 	id: string;
 	name: string;
@@ -56,7 +65,7 @@ export interface Expense {
 	/** base64 data URL held client-side for preview (no real storage in W1). */
 	receiptDataUrl: string | null;
 	ocrConfidence: number | null;
-	ocrRaw: Record<string, unknown> | null;
+	ocrRaw: JsonValue | null;
 	createdAt: string;
 }
 

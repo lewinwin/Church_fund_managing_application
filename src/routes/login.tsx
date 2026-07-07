@@ -27,10 +27,10 @@ function LoginPage() {
 		if (ready && user) navigate({ to: "/dashboard" });
 	}, [ready, user, navigate]);
 
-	function handleSubmit(e: FormEvent) {
+	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		setError(null);
-		const result = login(email, password);
+		const result = await login(email, password);
 		if (result.ok) {
 			navigate({ to: "/dashboard" });
 		} else {

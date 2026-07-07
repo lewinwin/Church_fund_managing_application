@@ -26,9 +26,9 @@ function RootDocument({ children }: { children: ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<StoreProvider>
-					<AuthProvider>{children}</AuthProvider>
-				</StoreProvider>
+				<AuthProvider>
+					<StoreProvider>{children}</StoreProvider>
+				</AuthProvider>
 				<Scripts />
 			</body>
 		</html>

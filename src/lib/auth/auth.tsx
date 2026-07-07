@@ -1,5 +1,5 @@
-// Fake auth context — dev only. Validates email/password against mock users
-// and stores the session in localStorage. Real Better Auth lands W2.
+// Auth context backed by Better Auth via server functions. The session lives
+// in an HTTP-only cookie; this context mirrors it into React state.
 import {
 	createContext,
 	type ReactNode,
@@ -9,53 +9,60 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { loadSession, saveSession } from "#/lib/store/persistence";
-import { useStore } from "#/lib/store/store";
-import type { Session, User } from "#/lib/types";
+import { getSessionFn, signInFn, signOutFn } from "#/lib/server/fns";
+import type { Role } from "#/lib/types";
+
+export interface AuthUser {
+	id: string;
+	name: string;
+	email: string;
+	role: Role;
+	branchId: string | null;
+}
 
 interface AuthContextValue {
-	user: User | null;
+	user: AuthUser | null;
 	ready: boolean;
-	login: (email: string, password: string) => { ok: boolean; error?: string };
-	logout: () => void;
+	login: (
+		email: string,
+		password: string,
+	) => Promise<{ ok: boolean; error?: string }>;
+	logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-	const { data } = useStore();
-	const [session, setSession] = useState<Session | null>(null);
+	const [user, setUser] = useState<AuthUser | null>(null);
 	const [ready, setReady] = useState(false);
 
-	useEffect(() => {
-		setSession(loadSession());
-		setReady(true);
+	const refresh = useCallback(async () => {
+		const u = await getSessionFn();
+		setUser(u);
 	}, []);
 
-	const user = useMemo<User | null>(() => {
-		if (!session) return null;
-		return data.users.find((u) => u.id === session.userId) ?? null;
-	}, [session, data.users]);
+	useEffect(() => {
+		getSessionFn()
+			.then((u) => setUser(u))
+			.catch(() => setUser(null))
+			.finally(() => setReady(true));
+	}, []);
 
 	const login = useCallback<AuthContextValue["login"]>(
-		(email, password) => {
-			const match = data.users.find(
-				(u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-			);
-			if (!match || match.password !== password) {
-				return { ok: false, error: "Invalid email or password." };
+		async (email, password) => {
+			const res = await signInFn({ data: { email: email.trim(), password } });
+			if (res.ok) {
+				await refresh();
+				return { ok: true };
 			}
-			const next = { userId: match.id };
-			setSession(next);
-			saveSession(next);
-			return { ok: true };
+			return { ok: false, error: res.error };
 		},
-		[data.users],
+		[refresh],
 	);
 
-	const logout = useCallback(() => {
-		setSession(null);
-		saveSession(null);
+	const logout = useCallback<AuthContextValue["logout"]>(async () => {
+		await signOutFn();
+		setUser(null);
 	}, []);
 
 	const value = useMemo<AuthContextValue>(

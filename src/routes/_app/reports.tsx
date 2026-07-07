@@ -17,7 +17,6 @@ import {
 	categoryLabel,
 	globalTotals,
 	primaryCategories,
-	visibleExpenses,
 } from "#/lib/calc";
 import { type CsvRow, downloadCsv, printReport } from "#/lib/export";
 import {
@@ -40,7 +39,8 @@ function ReportsPage() {
 	const { data } = useStore();
 	const isHq = user?.role === "hq_admin";
 
-	const base = user ? visibleExpenses(data, user) : [];
+	// Data is already RLS-scoped server-side (branch user = own branch only).
+	const base = data.expenses;
 
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
