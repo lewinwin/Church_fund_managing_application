@@ -10,6 +10,7 @@ import { db } from "#/lib/db/client";
 import { user as userTable } from "#/lib/db/schema";
 import type { FundingPlanStatus, Role } from "#/lib/types";
 import * as data from "./data";
+import { runReceiptOcr } from "./ocr";
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -80,6 +81,15 @@ export const bootstrapFn = createServerFn({ method: "GET" }).handler(
 		return data.getBootstrapData(ctx);
 	},
 );
+
+// Receipt OCR (Gemini 2.5 Flash). Runs server-side so the API key stays secret.
+// Any signed-in user may extract; the result only pre-fills their review form.
+export const ocrExtractFn = createServerFn({ method: "POST" })
+	.validator((d: { dataUrl: string }) => d)
+	.handler(async ({ data: input }) => {
+		await requireAuthCtx();
+		return runReceiptOcr(input.dataUrl);
+	});
 
 export const submitExpenseFn = createServerFn({ method: "POST" })
 	.validator((d: data.SubmitExpenseInput) => d)

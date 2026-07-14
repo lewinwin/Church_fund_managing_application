@@ -21,7 +21,7 @@ import { useAuth } from "#/lib/auth/auth";
 import { branchById, primaryCategories, subCategories } from "#/lib/calc";
 import { rateToUsd, toUsd } from "#/lib/currency/exchangeRate";
 import { formatMoney, todayIso } from "#/lib/format";
-import { extractReceiptData } from "#/lib/ocr/ocrService";
+import { ocrExtractFn } from "#/lib/server/fns";
 import { useStore } from "#/lib/store/store";
 import type { CurrencyCode } from "#/lib/types";
 
@@ -32,6 +32,15 @@ export const Route = createFileRoute("/_app/submit-receipt")({
 type OcrStatus = "idle" | "processing" | "done" | "failed";
 
 const CURRENCIES: CurrencyCode[] = ["SGD", "MWK", "ZAR", "CRC", "USD"];
+
+function fileToDataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(file);
+	});
+}
 
 function SubmitReceiptPage() {
 	const { user } = useAuth();
@@ -70,29 +79,38 @@ function SubmitReceiptPage() {
 		setFileName(file.name);
 		setError(null);
 
-		const reader = new FileReader();
-		reader.onload = () => setDataUrl(reader.result as string);
-		reader.readAsDataURL(file);
+		const url = await fileToDataUrl(file);
+		setDataUrl(url);
 
-		setOcrStatus("processing");
-		const result = await extractReceiptData(file, {
-			currency: branch.localCurrency,
-			simulateFailure,
-		});
-
-		if (result.amount == null) {
-			// OCR failed / low confidence — leave fields empty for manual entry.
+		// Test path: skip the real OCR call so the manual-entry fallback can be
+		// checked without spending an API request.
+		if (simulateFailure) {
 			setOcrStatus("failed");
-			setConfidence(result.confidence ?? null);
+			setConfidence(0.12);
 			setCurrency(branch.localCurrency);
 			return;
 		}
 
-		setOcrStatus("done");
-		setConfidence(result.confidence ?? null);
-		setAmount(result.amount != null ? String(result.amount) : "");
-		setCurrency(result.currency ?? branch.localCurrency);
-		if (result.date) setExpenseDate(result.date);
+		setOcrStatus("processing");
+		try {
+			const result = await ocrExtractFn({ data: { dataUrl: url } });
+			// Pre-fill whatever the model returned; the user reviews everything.
+			setConfidence(result.confidence);
+			setCurrency(result.currency ?? branch.localCurrency);
+			if (result.date) setExpenseDate(result.date);
+			if (result.description) setDescription(result.description);
+
+			if (result.amount == null) {
+				// Low confidence / unreadable — leave amount empty for manual entry.
+				setOcrStatus("failed");
+				return;
+			}
+			setAmount(String(result.amount));
+			setOcrStatus("done");
+		} catch {
+			setOcrStatus("failed");
+			setCurrency(branch.localCurrency);
+		}
 	}
 
 	function handleSubmit(e: FormEvent) {
@@ -189,7 +207,7 @@ function SubmitReceiptPage() {
 								: "Click to upload a receipt"}
 						</span>
 						<span className="text-xs text-[var(--color-muted)]">
-							Held in your browser only (no server upload in W1)
+							Sent securely to read the receipt automatically
 						</span>
 						<input
 							type="file"
