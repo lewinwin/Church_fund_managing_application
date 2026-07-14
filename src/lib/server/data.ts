@@ -1,7 +1,9 @@
-// Server-side data access. Every read/write goes through withRls so Postgres
-// enforces branch isolation. Shapes mirror the W1 AppData/types so the React
-// store barely changes. Server-only.
+// Server-side data access. Branch isolation is enforced by an application-level
+// gate (branchScope in ./scope), not Postgres RLS — no per-request set_config,
+// and the scoping is a pure, unit-testable function. Shapes mirror the W1
+// AppData/types so the React store barely changes. Server-only.
 import { eq } from "drizzle-orm";
+import { db } from "#/lib/db/client";
 import * as t from "#/lib/db/schema";
 import { newId } from "#/lib/id";
 import type {
@@ -17,7 +19,7 @@ import type {
 	Role,
 	User,
 } from "#/lib/types";
-import { type AuthCtx, withRls } from "./rls";
+import { type AuthCtx, branchScope } from "./scope";
 
 const iso = (d: Date | string) => (typeof d === "string" ? d : d.toISOString());
 
@@ -94,33 +96,40 @@ function mapUser(r: typeof t.user.$inferSelect): User {
 }
 
 // ---------------------------------------------------------------------------
-// Reads
+// Reads — branch-scoped tables gated by branchScope(ctx, ...)
 // ---------------------------------------------------------------------------
 
 export async function getBootstrapData(ctx: AuthCtx): Promise<AppData> {
-	return withRls(ctx, async (tx) => {
-		const branches = await tx.select().from(t.branches);
-		const categories = await tx.select().from(t.expenseCategories);
-		const expenses = await tx.select().from(t.expenses); // RLS-scoped
-		const fundingPlans = await tx.select().from(t.fundingPlans); // RLS-scoped
-		const fundReleases = await tx.select().from(t.fundReleases); // RLS-scoped
-		const users =
-			ctx.role === "hq_admin"
-				? await tx.select().from(t.user)
-				: await tx
-						.select()
-						.from(t.user)
-						.where(eq(t.user.branchId, ctx.branchId ?? ""));
+	const branches = await db.select().from(t.branches);
+	const categories = await db.select().from(t.expenseCategories);
+	const expenses = await db
+		.select()
+		.from(t.expenses)
+		.where(branchScope(ctx, t.expenses.branchId));
+	const fundingPlans = await db
+		.select()
+		.from(t.fundingPlans)
+		.where(branchScope(ctx, t.fundingPlans.branchId));
+	const fundReleases = await db
+		.select()
+		.from(t.fundReleases)
+		.where(branchScope(ctx, t.fundReleases.branchId));
+	const users =
+		ctx.role === "hq_admin"
+			? await db.select().from(t.user)
+			: await db
+					.select()
+					.from(t.user)
+					.where(eq(t.user.branchId, ctx.branchId ?? ""));
 
-		return {
-			branches: branches.map(mapBranch),
-			categories: categories.map(mapCategory),
-			expenses: expenses.map(mapExpense),
-			fundingPlans: fundingPlans.map(mapPlan),
-			fundReleases: fundReleases.map(mapRelease),
-			users: users.map(mapUser),
-		};
-	});
+	return {
+		branches: branches.map(mapBranch),
+		categories: categories.map(mapCategory),
+		expenses: expenses.map(mapExpense),
+		fundingPlans: fundingPlans.map(mapPlan),
+		fundReleases: fundReleases.map(mapRelease),
+		users: users.map(mapUser),
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -146,25 +155,23 @@ export async function submitExpense(ctx: AuthCtx, input: SubmitExpenseInput) {
 		throw new Error("Only branch users can submit expenses");
 	}
 	const id = newId("exp");
-	await withRls(ctx, (tx) =>
-		tx.insert(t.expenses).values({
-			id,
-			branchId: ctx.branchId as string,
-			submittedByUserId: ctx.userId,
-			description: input.description,
-			expenseDate: input.expenseDate,
-			localAmount: input.localAmount,
-			localCurrency: input.localCurrency,
-			exchangeRateToUsd: input.exchangeRateToUsd,
-			usdAmount: input.usdAmount,
-			categoryId: input.categoryId,
-			otherSubcategoryId: input.otherSubcategoryId,
-			receiptFileName: input.receiptFileName,
-			receiptDataUrl: input.receiptDataUrl,
-			ocrConfidence: input.ocrConfidence,
-			ocrRaw: null,
-		}),
-	);
+	await db.insert(t.expenses).values({
+		id,
+		branchId: ctx.branchId,
+		submittedByUserId: ctx.userId,
+		description: input.description,
+		expenseDate: input.expenseDate,
+		localAmount: input.localAmount,
+		localCurrency: input.localCurrency,
+		exchangeRateToUsd: input.exchangeRateToUsd,
+		usdAmount: input.usdAmount,
+		categoryId: input.categoryId,
+		otherSubcategoryId: input.otherSubcategoryId,
+		receiptFileName: input.receiptFileName,
+		receiptDataUrl: input.receiptDataUrl,
+		ocrConfidence: input.ocrConfidence,
+		ocrRaw: null,
+	});
 	return id;
 }
 
@@ -183,7 +190,7 @@ export async function createFundingPlan(
 ) {
 	assertHq(ctx);
 	const id = newId("fp");
-	await withRls(ctx, (tx) => tx.insert(t.fundingPlans).values({ id, ...input }));
+	await db.insert(t.fundingPlans).values({ id, ...input });
 	return id;
 }
 
@@ -197,9 +204,7 @@ export async function updateFundingPlan(
 	}>,
 ) {
 	assertHq(ctx);
-	await withRls(ctx, (tx) =>
-		tx.update(t.fundingPlans).set(patch).where(eq(t.fundingPlans.id, id)),
-	);
+	await db.update(t.fundingPlans).set(patch).where(eq(t.fundingPlans.id, id));
 }
 
 export async function recordFundRelease(
@@ -214,9 +219,9 @@ export async function recordFundRelease(
 ) {
 	assertHq(ctx);
 	const id = newId("fr");
-	await withRls(ctx, (tx) =>
-		tx.insert(t.fundReleases).values({ id, ...input, createdByUserId: ctx.userId }),
-	);
+	await db
+		.insert(t.fundReleases)
+		.values({ id, ...input, createdByUserId: ctx.userId });
 	return id;
 }
 
@@ -226,14 +231,12 @@ export async function createCategory(
 ) {
 	assertHq(ctx);
 	const id = newId(input.parentId ? "sub" : "cat");
-	await withRls(ctx, (tx) =>
-		tx.insert(t.expenseCategories).values({
-			id,
-			name: input.name,
-			parentId: input.parentId,
-			active: true,
-		}),
-	);
+	await db.insert(t.expenseCategories).values({
+		id,
+		name: input.name,
+		parentId: input.parentId,
+		active: true,
+	});
 	return id;
 }
 
@@ -243,22 +246,21 @@ export async function updateCategory(
 	patch: Partial<{ name: string; active: boolean }>,
 ) {
 	assertHq(ctx);
-	await withRls(ctx, (tx) =>
-		tx.update(t.expenseCategories).set(patch).where(eq(t.expenseCategories.id, id)),
-	);
+	await db
+		.update(t.expenseCategories)
+		.set(patch)
+		.where(eq(t.expenseCategories.id, id));
 }
 
 export async function toggleCategoryActive(ctx: AuthCtx, id: string) {
 	assertHq(ctx);
-	await withRls(ctx, async (tx) => {
-		const [row] = await tx
-			.select({ active: t.expenseCategories.active })
-			.from(t.expenseCategories)
-			.where(eq(t.expenseCategories.id, id));
-		if (!row) return;
-		await tx
-			.update(t.expenseCategories)
-			.set({ active: !row.active })
-			.where(eq(t.expenseCategories.id, id));
-	});
+	const [row] = await db
+		.select({ active: t.expenseCategories.active })
+		.from(t.expenseCategories)
+		.where(eq(t.expenseCategories.id, id));
+	if (!row) return;
+	await db
+		.update(t.expenseCategories)
+		.set({ active: !row.active })
+		.where(eq(t.expenseCategories.id, id));
 }

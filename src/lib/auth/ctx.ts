@@ -1,7 +1,7 @@
 // Resolve the authenticated caller (from the Better Auth session cookie) into
 // the AuthCtx the data layer needs. Server-only.
 import { getRequest } from "@tanstack/react-start/server";
-import type { AuthCtx, Role } from "#/lib/server/rls";
+import type { AuthCtx, Role } from "#/lib/server/scope";
 import { auth } from "./server";
 
 export async function getAuthCtx(): Promise<AuthCtx | null> {
