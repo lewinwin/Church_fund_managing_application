@@ -1,6 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { BranchDashboard } from "#/components/dashboard/BranchDashboard";
-import { HqDashboard } from "#/components/dashboard/HqDashboard";
 import { EmptyState } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById } from "#/lib/calc";
@@ -10,13 +9,14 @@ export const Route = createFileRoute("/_app/dashboard")({
 	component: DashboardPage,
 });
 
-// Role-aware: HQ Admin sees the consolidated view; Branch Users see their own.
+// Branch users only. HQ no longer has a dashboard — they're redirected to the
+// Branches page (the manager considered the HQ dashboard redundant).
 function DashboardPage() {
 	const { user } = useAuth();
 	const { data } = useStore();
 	if (!user) return null;
 
-	if (user.role === "hq_admin") return <HqDashboard />;
+	if (user.role === "hq_admin") return <Navigate to="/branches" />;
 
 	const branch = branchById(data.branches, user.branchId);
 	if (!branch) {

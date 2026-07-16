@@ -27,7 +27,6 @@ const BRANCH_NAV: NavItem[] = [
 ];
 
 const HQ_NAV: NavItem[] = [
-	{ to: "/dashboard", label: "HQ Dashboard", icon: LayoutDashboard },
 	{ to: "/branches", label: "Branches", icon: FolderTree },
 	{ to: "/funding-plans", label: "Funding Plans", icon: Wallet },
 	{ to: "/categories", label: "Categories", icon: Receipt },

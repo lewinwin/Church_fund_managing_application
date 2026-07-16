@@ -193,3 +193,67 @@ export const updateUserFn = createServerFn({ method: "POST" })
 		await db.update(userTable).set(input.patch).where(eq(userTable.id, input.id));
 		return { ok: true as const };
 	});
+
+// Create a branch + its login account (HQ-only). The branch row is created
+// first, then Better Auth's signUpEmail hashes the password, then the new user
+// is linked to the branch as a branch_user.
+export const createBranchFn = createServerFn({ method: "POST" })
+	.validator(
+		(d: {
+			name: string;
+			country: string;
+			currencyCode: string;
+			exchangeRateToUsd: number;
+			loginEmail: string;
+			defaultPassword: string;
+		}) => d,
+	)
+	.handler(async ({ data: input }) => {
+		const ctx = await requireAuthCtx();
+		const branchId = await data.createBranch(ctx, {
+			name: input.name,
+			country: input.country,
+			currencyCode: input.currencyCode,
+			exchangeRateToUsd: input.exchangeRateToUsd,
+		});
+		await auth.api.signUpEmail({
+			body: {
+				email: input.loginEmail,
+				password: input.defaultPassword,
+				name: input.name,
+			},
+		});
+		await db
+			.update(userTable)
+			.set({ role: "branch_user", branchId })
+			.where(eq(userTable.email, input.loginEmail));
+		return { ok: true as const, branchId };
+	});
+
+// Increase an existing plan's target (HQ-only). Client sends the USD amount.
+export const addToPlanTargetFn = createServerFn({ method: "POST" })
+	.validator((d: { planId: string; amountUsd: number }) => d)
+	.handler(async ({ data: input }) =>
+		data.addToPlanTarget(await requireAuthCtx(), input.planId, input.amountUsd),
+	);
+
+// A branch user changes their own password (Better Auth, session-scoped).
+export const changePasswordFn = createServerFn({ method: "POST" })
+	.validator((d: { currentPassword: string; newPassword: string }) => d)
+	.handler(async ({ data: input }) => {
+		try {
+			await auth.api.changePassword({
+				body: {
+					currentPassword: input.currentPassword,
+					newPassword: input.newPassword,
+				},
+				headers: getRequest().headers,
+			});
+			return { ok: true as const };
+		} catch {
+			return {
+				ok: false as const,
+				error: "Could not change password. Check your current password.",
+			};
+		}
+	});

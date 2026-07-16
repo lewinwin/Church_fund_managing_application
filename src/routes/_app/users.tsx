@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Pencil, UserPlus } from "lucide-react";
+import { Building2, Pencil, UserPlus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import { Modal } from "#/components/ui/Overlay";
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/_app/users")({ component: UsersPage });
 function UsersPage() {
 	const { data, addUser, updateUser } = useStore();
 	const [addOpen, setAddOpen] = useState(false);
+	const [createBranchOpen, setCreateBranchOpen] = useState(false);
 	const [editing, setEditing] = useState<User | null>(null);
 
 	const branchName = (id: string | null) =>
@@ -68,9 +69,14 @@ function UsersPage() {
 			<SectionCard
 				title="Users & branch accounts"
 				action={
-					<Button onClick={() => setAddOpen(true)}>
-						<UserPlus size={15} /> Add user
-					</Button>
+					<div className="flex gap-2">
+						<Button variant="ghost" onClick={() => setCreateBranchOpen(true)}>
+							<Building2 size={15} /> Create branch
+						</Button>
+						<Button onClick={() => setAddOpen(true)}>
+							<UserPlus size={15} /> Add user
+						</Button>
+					</div>
 				}
 			>
 				<DataTable columns={columns} rows={data.users} getKey={(u) => u.id} />
@@ -85,6 +91,10 @@ function UsersPage() {
 				onClose={() => setAddOpen(false)}
 				onAdd={addUser}
 			/>
+			<CreateBranchModal
+				open={createBranchOpen}
+				onClose={() => setCreateBranchOpen(false)}
+			/>
 			{editing && (
 				<EditUserModal
 					key={editing.id}
@@ -94,6 +104,143 @@ function UsersPage() {
 				/>
 			)}
 		</div>
+	);
+}
+
+function CreateBranchModal({
+	open,
+	onClose,
+}: {
+	open: boolean;
+	onClose: () => void;
+}) {
+	const { data, addBranch } = useStore();
+	const [name, setName] = useState("");
+	const [country, setCountry] = useState("");
+	const [currencyCode, setCurrencyCode] = useState("");
+	const [rate, setRate] = useState("");
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	const rateNum = Number(rate);
+	const code = currencyCode.trim().toUpperCase();
+	const preview =
+		code && rateNum > 0 ? `1 ${code} = $${rateNum}` : "1 local = ? USD";
+
+	async function handleSubmit(e: FormEvent) {
+		e.preventDefault();
+		if (!name.trim()) return setError("Branch name is required.");
+		if (!country.trim()) return setError("Country is required.");
+		if (!/^[A-Z]{3}$/.test(code))
+			return setError("Currency must be a 3-letter code (e.g. VND).");
+		if (!(rateNum > 0))
+			return setError("Enter an exchange rate greater than 0.");
+		if (!email.trim() || !email.includes("@"))
+			return setError("Enter a valid login email.");
+		if (
+			data.users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+		)
+			return setError("A user with that email already exists.");
+		if (password.length < 6)
+			return setError("Password must be at least 6 characters.");
+		setBusy(true);
+		setError(null);
+		try {
+			await addBranch({
+				name: name.trim(),
+				country: country.trim(),
+				currencyCode: code,
+				exchangeRateToUsd: rateNum,
+				loginEmail: email.trim(),
+				defaultPassword: password,
+			});
+			onClose();
+		} catch {
+			setError("Could not create the branch. The email may already be in use.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Modal
+			open={open}
+			onClose={onClose}
+			title="Create branch"
+			footer={
+				<>
+					<Button variant="ghost" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button type="submit" form="create-branch-form" disabled={busy}>
+						{busy ? "Creating…" : "Create branch"}
+					</Button>
+				</>
+			}
+		>
+			<form id="create-branch-form" onSubmit={handleSubmit} className="space-y-4">
+				<Field label="Branch name" required>
+					<Input
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						placeholder="e.g. Vietnam"
+					/>
+				</Field>
+				<Field label="Country" required>
+					<Input
+						value={country}
+						onChange={(e) => setCountry(e.target.value)}
+						placeholder="e.g. Vietnam"
+					/>
+				</Field>
+				<div className="grid grid-cols-2 gap-3">
+					<Field label="Currency code" required hint="3-letter ISO (VND, THB…)">
+						<Input
+							value={currencyCode}
+							maxLength={3}
+							onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
+							placeholder="VND"
+						/>
+					</Field>
+					<Field label="Rate to USD" required hint={preview}>
+						<Input
+							type="number"
+							step="any"
+							min="0"
+							value={rate}
+							onChange={(e) => setRate(e.target.value)}
+							placeholder="0.0000395"
+						/>
+					</Field>
+				</div>
+				<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
+					Creates the branch plus a login account. The branch signs in with the
+					email + password below and can change the password later in Settings.
+				</p>
+				<Field label="Login email" required>
+					<Input
+						type="email"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						placeholder="vietnam@example.com"
+					/>
+				</Field>
+				<Field label="Default password" required hint="At least 6 characters.">
+					<Input
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						placeholder="Set a temporary password"
+					/>
+				</Field>
+				{error && (
+					<p className="rounded-lg bg-[#fdecea] px-3 py-2 text-sm text-[var(--color-negative)]">
+						{error}
+					</p>
+				)}
+			</form>
+		</Modal>
 	);
 }
 

@@ -16,16 +16,18 @@ export function CategoryDonutCard({
 	categories,
 	title = "Expense by category",
 	displayCurrency,
+	displayRate,
 }: {
 	expenses: Expense[];
 	categories: Category[];
 	title?: string;
 	displayCurrency?: CurrencyCode;
+	displayRate?: number;
 }) {
 	const isLocal = displayCurrency != null && displayCurrency !== "USD";
 	const fmt = (usd: number) =>
 		isLocal
-			? formatMoney(usdToLocal(usd, displayCurrency), displayCurrency)
+			? formatMoney(usdToLocal(usd, displayRate ?? 1), displayCurrency)
 			: formatUsd(usd);
 	const slices = spendByCategory(expenses, categories).map((s, i) => ({
 		label: s.label,

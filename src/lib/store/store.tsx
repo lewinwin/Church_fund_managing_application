@@ -13,7 +13,10 @@ import {
 } from "react";
 import { useAuth } from "#/lib/auth/auth";
 import {
+	addToPlanTargetFn,
 	bootstrapFn,
+	changePasswordFn,
+	createBranchFn,
 	createCategoryFn,
 	createFundingPlanFn,
 	createUserFn,
@@ -67,6 +70,19 @@ interface StoreContextValue {
 		branchId: string | null;
 	}) => Promise<void>;
 	updateUser: (id: string, patch: Partial<User>) => Promise<void>;
+	addBranch: (input: {
+		name: string;
+		country: string;
+		currencyCode: string;
+		exchangeRateToUsd: number;
+		loginEmail: string;
+		defaultPassword: string;
+	}) => Promise<void>;
+	addToPlanTarget: (planId: string, amountUsd: number) => Promise<void>;
+	changePassword: (
+		currentPassword: string,
+		newPassword: string,
+	) => Promise<{ ok: boolean; error?: string }>;
 	resetDemo: () => Promise<void>;
 }
 
@@ -209,6 +225,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 		[refresh],
 	);
 
+	const addBranch = useCallback<StoreContextValue["addBranch"]>(
+		async (input) => {
+			await createBranchFn({ data: input });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const addToPlanTarget = useCallback<StoreContextValue["addToPlanTarget"]>(
+		async (planId, amountUsd) => {
+			await addToPlanTargetFn({ data: { planId, amountUsd } });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const changePassword = useCallback<StoreContextValue["changePassword"]>(
+		async (currentPassword, newPassword) =>
+			changePasswordFn({ data: { currentPassword, newPassword } }),
+		[],
+	);
+
 	const resetDemo = useCallback<StoreContextValue["resetDemo"]>(async () => {
 		await refresh();
 	}, [refresh]);
@@ -226,6 +264,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			toggleCategoryActive,
 			addUser,
 			updateUser,
+			addBranch,
+			addToPlanTarget,
+			changePassword,
 			resetDemo,
 		}),
 		[
@@ -240,6 +281,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			toggleCategoryActive,
 			addUser,
 			updateUser,
+			addBranch,
+			addToPlanTarget,
+			changePassword,
 			resetDemo,
 		],
 	);

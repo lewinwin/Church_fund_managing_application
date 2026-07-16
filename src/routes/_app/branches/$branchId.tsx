@@ -1,14 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-	ArrowDownRight,
-	ArrowLeft,
-	ArrowUpRight,
-	PlusCircle,
-	Settings2,
-	Wallet,
-} from "lucide-react";
+import { ArrowLeft, PlusCircle, Settings2 } from "lucide-react";
 import { useState } from "react";
-import { CategoryDonutCard } from "#/components/dashboard/CategoryDonutCard";
 import { FundOverview } from "#/components/dashboard/FundOverview";
 import { EditPlanModal } from "#/components/funding/EditPlanModal";
 import { FundReleaseModal } from "#/components/funding/FundReleaseModal";
@@ -21,17 +13,16 @@ import {
 	EmptyState,
 	SectionCard,
 } from "#/components/ui/primitives";
-import { StatCard } from "#/components/ui/StatCard";
 import {
 	activePlanForBranch,
 	branchById,
 	branchFinancials,
 	expensesForBranch,
 	releasesForBranch,
-	remainingLocal,
 	userById,
 } from "#/lib/calc";
-import { formatDate, formatMoney, formatUsd } from "#/lib/format";
+import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatDate, formatMoney } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { Expense, FundRelease } from "#/lib/types";
 
@@ -61,13 +52,17 @@ function BranchDetailPage() {
 		);
 	}
 
+	// This branch's own currency drives every figure on the page.
+	const cur = branch.localCurrency;
+	const rate = branch.exchangeRateToUsd;
+	const local = (usd: number) => formatMoney(usdToLocal(usd, rate), cur);
+
 	const fin = branchFinancials(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
 	const releases = releasesForBranch(data, branch.id).sort((a, b) =>
 		a.releaseDate < b.releaseDate ? 1 : -1,
 	);
 	const plan = activePlanForBranch(data, branch.id);
-	const remLocal = remainingLocal(data, branch.id, branch.localCurrency);
 
 	const releaseColumns: Column<FundRelease>[] = [
 		{
@@ -77,11 +72,9 @@ function BranchDetailPage() {
 		},
 		{
 			key: "amount",
-			header: "Amount",
+			header: `Amount (${cur})`,
 			align: "right",
-			render: (r) => (
-				<span className="font-semibold">{formatUsd(r.amountUsd)}</span>
-			),
+			render: (r) => <span className="font-semibold">{local(r.amountUsd)}</span>,
 		},
 		{
 			key: "note",
@@ -110,7 +103,7 @@ function BranchDetailPage() {
 					<div className="flex items-center gap-3">
 						<h2 className="text-xl font-bold">{branch.name}</h2>
 						<Badge tone="neutral">
-							{branch.country} · {branch.localCurrency}
+							{branch.country} · {cur}
 						</Badge>
 					</div>
 				</div>
@@ -126,55 +119,23 @@ function BranchDetailPage() {
 				</div>
 			</div>
 
-			{/* Mobile: fund balance first, then compact 2-col KPIs. Desktop keeps
-			    KPIs on top via order utilities. */}
-			<div className="flex flex-col gap-5">
-				<div className="order-2 grid grid-cols-2 gap-4 lg:order-1 xl:grid-cols-4">
-					<StatCard
-						label="Released"
-						value={formatUsd(fin.releasedUsd)}
-						icon={<Wallet size={17} />}
-					/>
-					<StatCard
-						label="Spent"
-						value={formatUsd(fin.spentUsd)}
-						accent="red"
-						icon={<ArrowUpRight size={17} />}
-					/>
-					<StatCard
-						label="Remaining (USD)"
-						value={formatUsd(fin.remainingUsd)}
-						accent="lime"
-						icon={<ArrowDownRight size={17} />}
-					/>
-					<StatCard
-						label="Remaining (local)"
-						value={formatMoney(remLocal, branch.localCurrency)}
-						icon={<Wallet size={17} />}
-					/>
-				</div>
-
-				<div className="order-1 grid grid-cols-1 gap-5 lg:order-2 lg:grid-cols-3">
-					<div className="lg:col-span-2">
-						<FundOverview
-							title="Fund balance"
-							releasedUsd={fin.releasedUsd}
-							spentUsd={fin.spentUsd}
-							remainingUsd={fin.remainingUsd}
-							percentUsed={fin.percentUsed}
-							status={fin.status}
-							localLine={
-								plan
-									? `Active plan: ${plan.description} · Target ${formatUsd(
-											plan.totalTargetUsd,
-										)}`
-									: "No active funding plan for this branch."
-							}
-						/>
-					</div>
-					<CategoryDonutCard expenses={expenses} categories={data.categories} />
-				</div>
-			</div>
+			<FundOverview
+				title="Fund balance"
+				releasedUsd={fin.releasedUsd}
+				spentUsd={fin.spentUsd}
+				remainingUsd={fin.remainingUsd}
+				percentUsed={fin.percentUsed}
+				status={fin.status}
+				displayCurrency={cur}
+				displayRate={rate}
+				localLine={
+					plan
+						? `Active plan: ${plan.description} · Target ${local(
+								plan.totalTargetUsd,
+							)}`
+						: "No active funding plan for this branch."
+				}
+			/>
 
 			<SectionCard title="Fund release history">
 				<DataTable
@@ -194,8 +155,7 @@ function BranchDetailPage() {
 				<GroupedExpenseList
 					expenses={expenses}
 					categories={data.categories}
-					currency={branch.localCurrency}
-					showUsd
+					currency={cur}
 					onSelect={setSelected}
 				/>
 			</SectionCard>
@@ -206,6 +166,7 @@ function BranchDetailPage() {
 				branches={data.branches}
 				users={data.users}
 				onClose={() => setSelected(null)}
+				showUsd={false}
 			/>
 			<FundReleaseModal
 				open={releaseOpen}

@@ -2,7 +2,7 @@
 // gate (branchScope in ./scope), not Postgres RLS — no per-request set_config,
 // and the scoping is a pure, unit-testable function. Shapes mirror the W1
 // AppData/types so the React store barely changes. Server-only.
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "#/lib/db/client";
 import * as t from "#/lib/db/schema";
 import { newId } from "#/lib/id";
@@ -29,6 +29,7 @@ function mapBranch(r: typeof t.branches.$inferSelect): Branch {
 		name: r.name,
 		country: r.country,
 		localCurrency: r.localCurrency as CurrencyCode,
+		exchangeRateToUsd: r.exchangeRateToUsd,
 		createdAt: iso(r.createdAt),
 	};
 }
@@ -205,6 +206,48 @@ export async function updateFundingPlan(
 ) {
 	assertHq(ctx);
 	await db.update(t.fundingPlans).set(patch).where(eq(t.fundingPlans.id, id));
+}
+
+/** Increase a plan's target by amountUsd (atomic). HQ-only, increase-only. */
+export async function addToPlanTarget(
+	ctx: AuthCtx,
+	planId: string,
+	amountUsd: number,
+) {
+	assertHq(ctx);
+	if (!(amountUsd > 0)) throw new Error("Amount must be greater than 0");
+	await db
+		.update(t.fundingPlans)
+		.set({
+			totalTargetUsd: sql`${t.fundingPlans.totalTargetUsd} + ${amountUsd}`,
+		})
+		.where(eq(t.fundingPlans.id, planId));
+}
+
+/** Create a new branch (HQ-only). The linked login account is created by the
+ *  server function so Better Auth hashes the password. Returns the new id. */
+export async function createBranch(
+	ctx: AuthCtx,
+	input: {
+		name: string;
+		country: string;
+		currencyCode: string;
+		exchangeRateToUsd: number;
+	},
+) {
+	assertHq(ctx);
+	if (!(input.exchangeRateToUsd > 0)) {
+		throw new Error("Exchange rate must be greater than 0");
+	}
+	const id = newId("br");
+	await db.insert(t.branches).values({
+		id,
+		name: input.name,
+		country: input.country,
+		localCurrency: input.currencyCode.toUpperCase(),
+		exchangeRateToUsd: input.exchangeRateToUsd,
+	});
+	return id;
 }
 
 export async function recordFundRelease(

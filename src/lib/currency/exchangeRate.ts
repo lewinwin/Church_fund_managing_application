@@ -39,14 +39,15 @@ export function getExchangeRateToUsd(
 	};
 }
 
-/** Convert a local amount to USD using the fixed rate. */
-export function toUsd(localAmount: number, currency: CurrencyCode): number {
-	return round2(localAmount * rateToUsd(currency));
+/** Convert a local amount to USD using an explicit rate (1 local = rate USD).
+ *  Full precision (no cent-rounding) so low-value currencies (VND, MWK) round-
+ *  trip exactly; display formatters round as needed. */
+export function toUsd(localAmount: number, rate: number): number {
+	return localAmount * rate;
 }
 
-/** Convert a USD amount to a branch's local currency (display only). */
-export function usdToLocal(usdAmount: number, currency: CurrencyCode): number {
-	const rate = rateToUsd(currency);
+/** Convert a USD amount to local using an explicit rate (display only). */
+export function usdToLocal(usdAmount: number, rate: number): number {
 	if (rate === 0) return 0;
 	return usdAmount / rate;
 }

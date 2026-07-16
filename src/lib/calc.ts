@@ -8,7 +8,6 @@ import type {
 	Branch,
 	BranchFinancials,
 	Category,
-	CurrencyCode,
 	Expense,
 	FundingPlan,
 	FundRelease,
@@ -125,13 +124,10 @@ export function globalTotals(data: AppData): GlobalTotals {
 	};
 }
 
-export function remainingLocal(
-	data: AppData,
-	branchId: string,
-	currency: CurrencyCode,
-): number {
+export function remainingLocal(data: AppData, branchId: string): number {
 	const { remainingUsd } = branchFinancials(data, branchId);
-	return usdToLocal(remainingUsd, currency);
+	const branch = branchById(data.branches, branchId);
+	return usdToLocal(remainingUsd, branch?.exchangeRateToUsd ?? 1);
 }
 
 // ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ async function main() {
 			name: b.name,
 			country: b.country,
 			localCurrency: b.localCurrency,
+			exchangeRateToUsd: b.exchangeRateToUsd,
 			createdAt: new Date(b.createdAt),
 		})),
 	);

@@ -18,6 +18,7 @@ export function FundOverview({
 	status,
 	localLine,
 	displayCurrency,
+	displayRate,
 }: {
 	title: string;
 	releasedUsd: number;
@@ -27,6 +28,8 @@ export function FundOverview({
 	status?: BalanceStatus;
 	localLine?: string;
 	displayCurrency?: CurrencyCode;
+	/** local rate (1 local = rate USD) — required when displayCurrency is local. */
+	displayRate?: number;
 }) {
 	const barTone =
 		status === "low" ? "red" : status === "warning" ? "amber" : "forest";
@@ -34,7 +37,7 @@ export function FundOverview({
 	const isLocal = displayCurrency != null && displayCurrency !== "USD";
 	const unit: CurrencyCode = isLocal ? displayCurrency : "USD";
 	const amt = (usd: number) =>
-		formatAmount(isLocal ? usdToLocal(usd, unit) : usd, unit);
+		formatAmount(isLocal ? usdToLocal(usd, displayRate ?? 1) : usd, unit);
 
 	return (
 		<Card className="p-5">

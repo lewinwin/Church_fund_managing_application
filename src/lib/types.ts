@@ -3,7 +3,12 @@
 
 export type Role = "hq_admin" | "branch_user";
 
-export type CurrencyCode = "ZAR" | "MWK" | "SGD" | "CRC" | "USD";
+// A 3-letter ISO currency code. Kept as a broad string (not a fixed union) so
+// HQ can add branches with new currencies at runtime; each branch stores its own
+// exchange rate. KNOWN_CURRENCIES are the built-ins with seed rates.
+export type CurrencyCode = string;
+
+export const KNOWN_CURRENCIES = ["USD", "SGD", "ZAR", "MWK", "CRC"] as const;
 
 export type FundingPlanStatus = "active" | "closed" | "cancelled";
 
@@ -23,6 +28,8 @@ export interface Branch {
 	name: string;
 	country: string;
 	localCurrency: CurrencyCode;
+	/** 1 local unit = this many USD. Stored per branch (fixed rate). */
+	exchangeRateToUsd: number;
 	createdAt: string;
 }
 

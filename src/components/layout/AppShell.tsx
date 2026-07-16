@@ -70,7 +70,7 @@ export function AppShell() {
 			navigate({ to: "/dashboard" });
 		}
 		if (user.role === "hq_admin" && isBranchOnly(pathname)) {
-			navigate({ to: "/dashboard" });
+			navigate({ to: "/branches" });
 		}
 	}, [ready, user, pathname, navigate]);
 

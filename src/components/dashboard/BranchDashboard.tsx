@@ -26,9 +26,9 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 	const expenses = expensesForBranch(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
 	const cur = branch.localCurrency;
-	const remLocal = remainingLocal(data, branch.id, cur);
-	const releasedLocal = usdToLocal(fin.releasedUsd, cur);
-	const spentLocal = usdToLocal(fin.spentUsd, cur);
+	const remLocal = remainingLocal(data, branch.id);
+	const releasedLocal = usdToLocal(fin.releasedUsd, branch.exchangeRateToUsd);
+	const spentLocal = usdToLocal(fin.spentUsd, branch.exchangeRateToUsd);
 
 	return (
 		<div className="space-y-5">
@@ -67,6 +67,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 						percentUsed={fin.percentUsed}
 						status={fin.status}
 						displayCurrency={cur}
+						displayRate={branch.exchangeRateToUsd}
 						localLine={`All figures shown in ${cur} at the current exchange rate.`}
 					/>
 
@@ -125,6 +126,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 							expenses={expenses}
 							categories={data.categories}
 							displayCurrency={cur}
+							displayRate={branch.exchangeRateToUsd}
 						/>
 					)}
 				</div>

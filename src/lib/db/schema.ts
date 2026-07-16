@@ -76,6 +76,12 @@ export const branches = pgTable("branches", {
 	name: text("name").notNull(),
 	country: text("country").notNull(),
 	localCurrency: text("local_currency").notNull(),
+	// local currency -> USD multiplier (1 local unit = rate USD). Stored per
+	// branch so HQ can add branches with new currencies at runtime. The default
+	// (USD parity) is only a migration fallback; real branches always set a rate.
+	exchangeRateToUsd: doublePrecision("exchange_rate_to_usd")
+		.notNull()
+		.default(1),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

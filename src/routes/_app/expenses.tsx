@@ -45,6 +45,7 @@ function ExpensesPage() {
 				percentUsed={fin.percentUsed}
 				status={fin.status}
 				displayCurrency={cur}
+				displayRate={branch.exchangeRateToUsd}
 				localLine={
 					plan
 						? `Active plan: ${plan.description} · all figures in ${cur}.`

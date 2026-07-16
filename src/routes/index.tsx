@@ -4,14 +4,21 @@ import { useAuth } from "#/lib/auth/auth";
 
 export const Route = createFileRoute("/")({ component: Index });
 
-// Entry point: bounce to the dashboard when signed in, otherwise to login.
+// Entry point: HQ lands on Branches (no dashboard), branch users on their
+// dashboard; signed-out users go to login.
 function Index() {
 	const { user, ready } = useAuth();
 	const navigate = useNavigate();
 
 	useEffect(() => {
 		if (!ready) return;
-		navigate({ to: user ? "/dashboard" : "/login" });
+		navigate({
+			to: !user
+				? "/login"
+				: user.role === "hq_admin"
+					? "/branches"
+					: "/dashboard",
+		});
 	}, [ready, user, navigate]);
 
 	return (

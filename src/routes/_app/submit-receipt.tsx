@@ -125,7 +125,10 @@ function SubmitReceiptPage() {
 		if (requiresSub && !subId)
 			return setError('A sub-category is required when "Other" is selected.');
 
-		const rate = rateToUsd(currency);
+		const rate =
+			currency === branch.localCurrency
+				? branch.exchangeRateToUsd
+				: rateToUsd(currency);
 		addExpense({
 			branchId: branch.id,
 			submittedByUserId: user?.id ?? "",
@@ -134,7 +137,7 @@ function SubmitReceiptPage() {
 			localAmount: Math.round(amt * 100) / 100,
 			localCurrency: currency,
 			exchangeRateToUsd: rate,
-			usdAmount: toUsd(amt, currency),
+			usdAmount: toUsd(amt, rate),
 			categoryId,
 			otherSubcategoryId: requiresSub ? subId : null,
 			receiptFileName: fileName,

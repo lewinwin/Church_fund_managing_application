@@ -15,7 +15,8 @@ import {
 	Textarea,
 } from "#/components/ui/primitives";
 import { activePlanForBranch, branchFinancials } from "#/lib/calc";
-import { formatPercent, formatUsd } from "#/lib/format";
+import { toUsd, usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatMoney, formatPercent, formatUsd } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 
@@ -27,7 +28,10 @@ interface PlanRow {
 	planId: string;
 	branchId: string;
 	branchName: string;
+	localCurrency: string;
+	rate: number;
 	targetUsd: number;
+	targetLocal: number;
 	releasedUsd: number;
 	spentUsd: number;
 	availableUsd: number;
@@ -45,15 +49,20 @@ function FundingPlansPage() {
 	const [createOpen, setCreateOpen] = useState(false);
 	const [releaseOpen, setReleaseOpen] = useState(false);
 	const [editPlan, setEditPlan] = useState<FundingPlan | null>(null);
+	const [addTargetPlan, setAddTargetPlan] = useState<PlanRow | null>(null);
 
 	const rows: PlanRow[] = data.fundingPlans.map((p) => {
 		const fin = branchFinancials(data, p.branchId);
+		const branch = data.branches.find((b) => b.id === p.branchId);
+		const rate = branch?.exchangeRateToUsd ?? 1;
 		return {
 			planId: p.id,
 			branchId: p.branchId,
-			branchName:
-				data.branches.find((b) => b.id === p.branchId)?.name ?? p.branchId,
+			branchName: branch?.name ?? p.branchId,
+			localCurrency: branch?.localCurrency ?? "USD",
+			rate,
 			targetUsd: p.totalTargetUsd,
+			targetLocal: usdToLocal(p.totalTargetUsd, rate),
 			releasedUsd: fin.releasedUsd,
 			spentUsd: fin.spentUsd,
 			availableUsd: fin.remainingUsd,
@@ -75,9 +84,9 @@ function FundingPlansPage() {
 		},
 		{
 			key: "target",
-			header: "Target",
+			header: "Target (local)",
 			align: "right",
-			render: (r) => formatUsd(r.targetUsd),
+			render: (r) => formatMoney(r.targetLocal, r.localCurrency),
 		},
 		{
 			key: "released",
@@ -126,16 +135,23 @@ function FundingPlansPage() {
 			header: "",
 			align: "right",
 			render: (r) => (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						setEditPlan(
-							data.fundingPlans.find((p) => p.id === r.planId) ?? null,
-						)
-					}
-				>
-					Manage
-				</Button>
+				<div className="flex justify-end gap-1">
+					{r.status === "active" && (
+						<Button variant="ghost" onClick={() => setAddTargetPlan(r)}>
+							<PlusCircle size={14} /> Add
+						</Button>
+					)}
+					<Button
+						variant="ghost"
+						onClick={() =>
+							setEditPlan(
+								data.fundingPlans.find((p) => p.id === r.planId) ?? null,
+							)
+						}
+					>
+						Manage
+					</Button>
+				</div>
 			),
 		},
 	];
@@ -178,7 +194,92 @@ function FundingPlansPage() {
 				onClose={() => setEditPlan(null)}
 				plan={editPlan}
 			/>
+			{addTargetPlan && (
+				<AddToTargetModal
+					row={addTargetPlan}
+					onClose={() => setAddTargetPlan(null)}
+				/>
+			)}
 		</div>
+	);
+}
+
+function AddToTargetModal({
+	row,
+	onClose,
+}: {
+	row: PlanRow;
+	onClose: () => void;
+}) {
+	const { addToPlanTarget } = useStore();
+	const [amount, setAmount] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	const add = Number(amount);
+	const newTargetLocal = row.targetLocal + (add > 0 ? add : 0);
+
+	async function handleSubmit(e: FormEvent) {
+		e.preventDefault();
+		if (!(add > 0)) return setError("Enter an amount greater than 0.");
+		setBusy(true);
+		setError(null);
+		try {
+			await addToPlanTarget(row.planId, toUsd(add, row.rate));
+			onClose();
+		} catch {
+			setError("Could not update the target.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Modal
+			open
+			onClose={onClose}
+			title={`Add to target — ${row.branchName}`}
+			footer={
+				<>
+					<Button variant="ghost" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button type="submit" form="add-target-form" disabled={busy}>
+						{busy ? "Adding…" : "Add to target"}
+					</Button>
+				</>
+			}
+		>
+			<form id="add-target-form" onSubmit={handleSubmit} className="space-y-4">
+				<div className="flex justify-between rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-sm">
+					<span className="text-[var(--color-muted)]">Current target</span>
+					<span className="font-semibold">
+						{formatMoney(row.targetLocal, row.localCurrency)}
+					</span>
+				</div>
+				<Field label={`Amount to add (${row.localCurrency})`} required>
+					<Input
+						type="number"
+						min="0"
+						step="0.01"
+						placeholder="0.00"
+						value={amount}
+						onChange={(e) => setAmount(e.target.value)}
+					/>
+				</Field>
+				<div className="flex justify-between rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm">
+					<span className="text-[var(--color-muted)]">New target</span>
+					<span className="font-bold text-[var(--color-forest-700)]">
+						{formatMoney(newTargetLocal, row.localCurrency)}
+					</span>
+				</div>
+				{error && (
+					<p className="rounded-lg bg-[#fdecea] px-3 py-2 text-sm text-[var(--color-negative)]">
+						{error}
+					</p>
+				)}
+			</form>
+		</Modal>
 	);
 }
 

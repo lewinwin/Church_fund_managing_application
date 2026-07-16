@@ -1,11 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { type Column, DataTable } from "#/components/ui/DataTable";
-import {
-	ProgressBar,
-	SectionCard,
-	StatusPill,
-} from "#/components/ui/primitives";
+import { ProgressBar, SectionCard } from "#/components/ui/primitives";
 import { branchFinancials } from "#/lib/calc";
 import { formatPercent, formatUsd } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
@@ -77,11 +73,6 @@ function BranchesPage() {
 					</span>
 				</div>
 			),
-		},
-		{
-			key: "status",
-			header: "Status",
-			render: (r) => <StatusPill status={r.fin.status} />,
 		},
 		{
 			key: "go",
