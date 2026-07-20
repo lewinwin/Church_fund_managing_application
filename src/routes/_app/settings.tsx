@@ -150,8 +150,8 @@ function SettingsPage() {
 						value={`1 ${branch.localCurrency} = ${branch.exchangeRateToUsd} USD`}
 					/>
 					<p className="mt-3 rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
-						Fixed mock rate for Week 1. A live exchange-rate provider lands in
-						W3.
+						This is the fixed exchange rate HQ set for your branch. Contact HQ if
+						it needs updating.
 					</p>
 				</SectionCard>
 			) : (
