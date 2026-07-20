@@ -140,7 +140,9 @@ function CreateBranchModal({
 		if (!email.trim() || !email.includes("@"))
 			return setError("Enter a valid login email.");
 		if (
-			data.users.some((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+			data.users.some(
+				(u) => u.email.toLowerCase() === email.trim().toLowerCase(),
+			)
 		)
 			return setError("A user with that email already exists.");
 		if (password.length < 6)
@@ -180,7 +182,11 @@ function CreateBranchModal({
 				</>
 			}
 		>
-			<form id="create-branch-form" onSubmit={handleSubmit} className="space-y-4">
+			<form
+				id="create-branch-form"
+				onSubmit={handleSubmit}
+				className="space-y-4"
+			>
 				<Field label="Branch name" required>
 					<Input
 						value={name}

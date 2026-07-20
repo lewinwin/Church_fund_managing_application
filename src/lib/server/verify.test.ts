@@ -56,7 +56,12 @@ describe("compareReceipt", () => {
 	it("flags an unreadable receipt (null fields)", () => {
 		const r = compareReceipt(
 			entered,
-			ocr({ ocrAmount: null, ocrDate: null, categoryFits: 0, overallConfidence: 0 }),
+			ocr({
+				ocrAmount: null,
+				ocrDate: null,
+				categoryFits: 0,
+				overallConfidence: 0,
+			}),
 		);
 		expect(r.needsCheck).toBe(true);
 	});
@@ -87,7 +92,12 @@ describe("transition guards", () => {
 			expect(canCancel(s)).toBe(true);
 			expect(canModify(s)).toBe(true);
 		}
-		for (const s of ["ok", "checking", "cancelled", "modify_requested"] as const) {
+		for (const s of [
+			"ok",
+			"checking",
+			"cancelled",
+			"modify_requested",
+		] as const) {
 			expect(canCancel(s)).toBe(false);
 			expect(canModify(s)).toBe(false);
 		}
@@ -102,7 +112,9 @@ describe("transition guards", () => {
 
 	it("Correct lands on the right status per source", () => {
 		// After a modify round → confirmed correction; first-pass flag → plain ok.
-		expect(statusAfterCorrect("after_modify_check")).toBe("correct_modification");
+		expect(statusAfterCorrect("after_modify_check")).toBe(
+			"correct_modification",
+		);
 		expect(statusAfterCorrect("need_check")).toBe("ok");
 	});
 

@@ -20,8 +20,10 @@ function decimalsFor(currency: CurrencyCode): number {
 	if (ZERO_DECIMAL.includes(currency)) return 0;
 	try {
 		return (
-			new Intl.NumberFormat("en-US", { style: "currency", currency })
-				.resolvedOptions().maximumFractionDigits ?? 2
+			new Intl.NumberFormat("en-US", {
+				style: "currency",
+				currency,
+			}).resolvedOptions().maximumFractionDigits ?? 2
 		);
 	} catch {
 		return 2;

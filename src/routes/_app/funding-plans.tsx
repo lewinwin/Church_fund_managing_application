@@ -16,7 +16,12 @@ import {
 } from "#/components/ui/primitives";
 import { activePlanForBranch, branchFinancials } from "#/lib/calc";
 import { toUsd, usdToLocal } from "#/lib/currency/exchangeRate";
-import { formatAmount, formatMoney, formatPercent, formatUsd } from "#/lib/format";
+import {
+	formatAmount,
+	formatMoney,
+	formatPercent,
+	formatUsd,
+} from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 

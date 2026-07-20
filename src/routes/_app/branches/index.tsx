@@ -2,7 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { HqReviewCard } from "#/components/receipts/HqReviewCard";
 import { type Column, DataTable } from "#/components/ui/DataTable";
-import { EmptyState, ProgressBar, SectionCard } from "#/components/ui/primitives";
+import {
+	EmptyState,
+	ProgressBar,
+	SectionCard,
+} from "#/components/ui/primitives";
 import { branchById, branchFinancials } from "#/lib/calc";
 import { usdToLocal } from "#/lib/currency/exchangeRate";
 import { formatAmount, formatPercent } from "#/lib/format";
@@ -16,7 +20,10 @@ export const Route = createFileRoute("/_app/branches/")({
 // Each branch's figures are shown in its OWN local currency (matching the branch
 // detail page), with no symbol — the currency code is shown under the branch name.
 function local(usd: number, branch: Branch): string {
-	return formatAmount(usdToLocal(usd, branch.exchangeRateToUsd), branch.localCurrency);
+	return formatAmount(
+		usdToLocal(usd, branch.exchangeRateToUsd),
+		branch.localCurrency,
+	);
 }
 
 function BranchesPage() {
@@ -110,10 +117,7 @@ function BranchesPage() {
 			<SectionCard
 				title={
 					<span className="flex items-center gap-2">
-						<AlertTriangle
-							size={16}
-							className="text-[var(--color-warning)]"
-						/>
+						<AlertTriangle size={16} className="text-[var(--color-warning)]" />
 						Needs Check ({flagged.length})
 					</span>
 				}
@@ -142,17 +146,17 @@ function BranchesPage() {
 			</SectionCard>
 
 			<SectionCard title="All branches">
-			<DataTable
-				columns={columns}
-				rows={rows}
-				getKey={(r) => r.branch.id}
-				onRowClick={(r) =>
-					navigate({
-						to: "/branches/$branchId",
-						params: { branchId: r.branch.id },
-					})
-				}
-			/>
+				<DataTable
+					columns={columns}
+					rows={rows}
+					getKey={(r) => r.branch.id}
+					onRowClick={(r) =>
+						navigate({
+							to: "/branches/$branchId",
+							params: { branchId: r.branch.id },
+						})
+					}
+				/>
 			</SectionCard>
 		</div>
 	);

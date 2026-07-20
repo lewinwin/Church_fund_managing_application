@@ -31,7 +31,8 @@ export function compareReceipt(
 	entered: EnteredFields,
 	ocr: OcrVerification,
 ): CompareResult {
-	const amountMatch = ocr.ocrAmount !== null && ocr.ocrAmount === entered.amount;
+	const amountMatch =
+		ocr.ocrAmount !== null && ocr.ocrAmount === entered.amount;
 	const dateMatch = ocr.ocrDate !== null && ocr.ocrDate === entered.date;
 	const categoryOk = ocr.categoryFits >= CATEGORY_THRESHOLD;
 	const lowConfidence = ocr.overallConfidence < CONFIDENCE_THRESHOLD;
