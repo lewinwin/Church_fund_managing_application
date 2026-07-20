@@ -16,7 +16,7 @@ import {
 } from "#/components/ui/primitives";
 import { activePlanForBranch, branchFinancials } from "#/lib/calc";
 import { toUsd, usdToLocal } from "#/lib/currency/exchangeRate";
-import { formatMoney, formatPercent, formatUsd } from "#/lib/format";
+import { formatAmount, formatMoney, formatPercent } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 
@@ -77,42 +77,48 @@ function FundingPlansPage() {
 			key: "branch",
 			header: "Branch",
 			render: (r) => (
-				<span className="font-medium text-[var(--color-ink)]">
-					{r.branchName}
-				</span>
+				<div>
+					<p className="font-medium text-[var(--color-ink)]">{r.branchName}</p>
+					<p className="text-xs text-[var(--color-muted)]">{r.localCurrency}</p>
+				</div>
 			),
 		},
 		{
 			key: "target",
-			header: "Target (local)",
+			header: "Target",
 			align: "right",
-			render: (r) => formatMoney(r.targetLocal, r.localCurrency),
+			render: (r) => formatAmount(r.targetLocal, r.localCurrency),
 		},
 		{
 			key: "released",
 			header: "Released",
 			align: "right",
-			render: (r) => formatUsd(r.releasedUsd),
+			render: (r) =>
+				formatAmount(usdToLocal(r.releasedUsd, r.rate), r.localCurrency),
 		},
 		{
 			key: "spent",
 			header: "Spent",
 			align: "right",
-			render: (r) => formatUsd(r.spentUsd),
+			render: (r) =>
+				formatAmount(usdToLocal(r.spentUsd, r.rate), r.localCurrency),
 		},
 		{
 			key: "available",
 			header: "Available",
 			align: "right",
 			render: (r) => (
-				<span className="font-semibold">{formatUsd(r.availableUsd)}</span>
+				<span className="font-semibold">
+					{formatAmount(usdToLocal(r.availableUsd, r.rate), r.localCurrency)}
+				</span>
 			),
 		},
 		{
 			key: "remainingTarget",
 			header: "Left to release",
 			align: "right",
-			render: (r) => formatUsd(r.remainingTargetUsd),
+			render: (r) =>
+				formatAmount(usdToLocal(r.remainingTargetUsd, r.rate), r.localCurrency),
 		},
 		{
 			key: "used",
