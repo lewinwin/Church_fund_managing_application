@@ -148,6 +148,12 @@ body {
   .field-input::placeholder {
     color: #a6b3ac;
   }
+  /* Edge/IE draw their own password reveal + clear buttons inside the field,
+     which sat next to our show/hide toggle (two eyes). Hide the native ones. */
+  .field-input::-ms-reveal,
+  .field-input::-ms-clear {
+    display: none;
+  }
 }
 
 /* Thin scrollbars */
