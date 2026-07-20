@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Drawer } from "#/components/ui/Overlay";
 import { Badge } from "#/components/ui/primitives";
+import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel } from "#/lib/calc";
 import {
 	formatDate,
@@ -10,6 +11,8 @@ import {
 } from "#/lib/format";
 import type { Branch, Category, Expense, User } from "#/lib/types";
 import { ReceiptPreview } from "./ReceiptPreview";
+import { ReviewBadge } from "./ReviewBadge";
+import { ReviewPanel } from "./ReviewPanel";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
 	return (
@@ -38,6 +41,7 @@ export function ExpenseDetailDrawer({
 	/** HQ views show USD + exchange rate; branch views (local only) hide them. */
 	showUsd?: boolean;
 }) {
+	const { user } = useAuth();
 	const branch = expense
 		? branches.find((b) => b.id === expense.branchId)
 		: undefined;
@@ -45,13 +49,25 @@ export function ExpenseDetailDrawer({
 		? users.find((u) => u.id === expense.submittedByUserId)
 		: undefined;
 
+	// HQ reviews (and decides on) a flagged transaction right here, alongside the
+	// receipt — no need to go back to the queue.
+	const showReview =
+		user?.role === "hq_admin" &&
+		expense != null &&
+		expense.reviewStatus !== "ok" &&
+		expense.reviewStatus !== "cancelled" &&
+		expense.reviewStatus !== "correct_modification";
+
 	return (
 		<Drawer open={!!expense} onClose={onClose} title="Receipt detail">
 			{expense && (
 				<div className="space-y-5">
 					<div>
 						<div className="mb-2 flex items-center justify-between gap-3">
-							<h4 className="text-lg font-bold">{expense.description}</h4>
+							<div className="flex flex-wrap items-center gap-2">
+								<h4 className="text-lg font-bold">{expense.description}</h4>
+								<ReviewBadge status={expense.reviewStatus} />
+							</div>
 							<Badge tone="lime">
 								{showUsd
 									? formatUsd(expense.usdAmount)
@@ -93,6 +109,16 @@ export function ExpenseDetailDrawer({
 								: "Manual entry"}
 						</Row>
 					</div>
+
+					{showReview && (
+						<div className="rounded-xl border border-[var(--color-line)] p-4">
+							<ReviewPanel
+								expense={expense}
+								categories={categories}
+								currency={expense.localCurrency}
+							/>
+						</div>
+					)}
 
 					{showUsd && (
 						<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">

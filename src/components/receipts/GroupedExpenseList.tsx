@@ -1,10 +1,33 @@
-import { ChevronDown, ChevronRight, Receipt } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Receipt } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState, Select } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
 import { formatAmount } from "#/lib/format";
-import type { Category, CurrencyCode, Expense } from "#/lib/types";
+import type { Category, CurrencyCode, Expense, ReviewStatus } from "#/lib/types";
 import { ReviewBadge } from "./ReviewBadge";
+
+// Unresolved transactions someone still has to act on. Used to mark the month
+// and day rows so a flagged receipt is findable without expanding everything.
+function needsAttention(status: ReviewStatus): boolean {
+	return (
+		status === "need_check" ||
+		status === "after_modify_check" ||
+		status === "modify_requested"
+	);
+}
+
+function FlagCount({ n }: { n: number }) {
+	if (n === 0) return null;
+	return (
+		<span
+			title={`${n} transaction${n > 1 ? "s" : ""} need attention`}
+			className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#fbf1dd] px-2 py-0.5 text-[11px] font-semibold text-[#b7841f]"
+		>
+			<AlertTriangle size={11} />
+			{n}
+		</span>
+	);
+}
 
 // Reference-style accordion: Month → Day → Transactions, each level showing a
 // total. Branch views total in local currency; HQ branch-detail passes
@@ -98,6 +121,7 @@ export function GroupedExpenseList({
 							<span className="flex min-w-0 items-center gap-2 font-semibold text-[var(--color-ink)]">
 								<Chevron open={monthOpen} />
 								<span className="truncate">{formatMonth(month.ym)}</span>
+								<FlagCount n={month.flagged} />
 							</span>
 							<span className="shrink-0 font-bold text-[var(--color-ink)]">
 								−{fmt(month.total)}
@@ -125,6 +149,7 @@ export function GroupedExpenseList({
 												<span className="shrink-0 text-xs text-[var(--color-muted)]">
 													· {day.items.length}
 												</span>
+												<FlagCount n={day.flagged} />
 											</span>
 											<span className="shrink-0 text-sm font-bold text-[var(--color-ink)]">
 												−{fmt(day.total)}
@@ -185,11 +210,15 @@ function Chevron({ open, small }: { open: boolean; small?: boolean }) {
 interface DayGroup {
 	day: string;
 	total: number;
+	/** How many transactions in this day still need attention. */
+	flagged: number;
 	items: Expense[];
 }
 interface MonthGroup {
 	ym: string;
 	total: number;
+	/** How many transactions in this month still need attention. */
+	flagged: number;
 	days: DayGroup[];
 }
 
@@ -217,9 +246,15 @@ function groupByMonth(expenses: Expense[], showUsd: boolean): MonthGroup[] {
 				.map(([day, dl]) => ({
 					day,
 					total: sumAmount(dl, showUsd),
+					flagged: dl.filter((e) => needsAttention(e.reviewStatus)).length,
 					items: [...dl].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
 				}));
-			return { ym, total: sumAmount(list, showUsd), days };
+			return {
+				ym,
+				total: sumAmount(list, showUsd),
+				flagged: list.filter((e) => needsAttention(e.reviewStatus)).length,
+				days,
+			};
 		});
 }
 
