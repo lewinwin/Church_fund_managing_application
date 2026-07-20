@@ -6,6 +6,7 @@ import { EditPlanModal } from "#/components/funding/EditPlanModal";
 import { FundReleaseModal } from "#/components/funding/FundReleaseModal";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { GroupedExpenseList } from "#/components/receipts/GroupedExpenseList";
+import { HqReviewCard } from "#/components/receipts/HqReviewCard";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import {
 	Badge,
@@ -59,6 +60,13 @@ function BranchDetailPage() {
 
 	const fin = branchFinancials(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
+	// Transactions awaiting HQ attention: OCR-flagged, resubmitted, or still checking.
+	const toReview = expenses.filter(
+		(e) =>
+			e.reviewStatus === "need_check" ||
+			e.reviewStatus === "after_modify_check" ||
+			e.reviewStatus === "checking",
+	);
 	const releases = releasesForBranch(data, branch.id).sort((a, b) =>
 		a.releaseDate < b.releaseDate ? 1 : -1,
 	);
@@ -136,6 +144,23 @@ function BranchDetailPage() {
 						: "No active funding plan for this branch."
 				}
 			/>
+
+			{toReview.length > 0 && (
+				<SectionCard
+					title={`Transactions to review (${toReview.length})`}
+				>
+					<div className="space-y-3">
+						{toReview.map((e) => (
+							<HqReviewCard
+								key={e.id}
+								expense={e}
+								categories={data.categories}
+								currency={cur}
+							/>
+						))}
+					</div>
+				</SectionCard>
+			)}
 
 			<SectionCard title="Fund release history">
 				<DataTable

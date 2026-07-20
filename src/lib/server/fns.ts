@@ -97,6 +97,64 @@ export const submitExpenseFn = createServerFn({ method: "POST" })
 		data.submitExpense(await requireAuthCtx(), input),
 	);
 
+// ---------------------------------------------------------------------------
+// OCR verification workflow (see OCR_VERIFY_DESIGN.md). Verify is callable by HQ
+// or the owning branch (post-submit trigger + Re-check). Cancel/Modify/Correct
+// are HQ-only (guarded inside the data layer); edit is owning-branch-only.
+// ---------------------------------------------------------------------------
+
+export const verifyExpenseFn = createServerFn({ method: "POST" })
+	.validator((d: { expenseId: string }) => d)
+	.handler(async ({ data: input }) =>
+		data.verifyExpense(await requireAuthCtx(), input.expenseId),
+	);
+
+export const cancelExpenseFn = createServerFn({ method: "POST" })
+	.validator((d: { expenseId: string; note: string | null }) => d)
+	.handler(async ({ data: input }) => {
+		await data.cancelExpense(
+			await requireAuthCtx(),
+			input.expenseId,
+			input.note,
+		);
+		return { ok: true as const };
+	});
+
+export const requestModifyFn = createServerFn({ method: "POST" })
+	.validator((d: { expenseId: string; note: string | null }) => d)
+	.handler(async ({ data: input }) => {
+		await data.requestModify(
+			await requireAuthCtx(),
+			input.expenseId,
+			input.note,
+		);
+		return { ok: true as const };
+	});
+
+export const confirmModificationFn = createServerFn({ method: "POST" })
+	.validator((d: { expenseId: string }) => d)
+	.handler(async ({ data: input }) => {
+		await data.confirmModification(await requireAuthCtx(), input.expenseId);
+		return { ok: true as const };
+	});
+
+export const updateExpenseFieldsFn = createServerFn({ method: "POST" })
+	.validator(
+		(d: {
+			expenseId: string;
+			localAmount: number;
+			expenseDate: string;
+			categoryId: string;
+			otherSubcategoryId: string | null;
+			description: string;
+		}) => d,
+	)
+	.handler(async ({ data: input }) => {
+		const { expenseId, ...fields } = input;
+		await data.updateExpenseFields(await requireAuthCtx(), expenseId, fields);
+		return { ok: true as const };
+	});
+
 export const createFundingPlanFn = createServerFn({ method: "POST" })
 	.validator(
 		(d: {

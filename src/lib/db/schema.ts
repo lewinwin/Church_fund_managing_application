@@ -4,6 +4,7 @@
 import {
 	boolean,
 	doublePrecision,
+	integer,
 	jsonb,
 	pgTable,
 	text,
@@ -137,5 +138,13 @@ export const expenses = pgTable("expenses", {
 	receiptDataUrl: text("receipt_data_url"),
 	ocrConfidence: doublePrecision("ocr_confidence"),
 	ocrRaw: jsonb("ocr_raw"),
+	// OCR verification workflow. A submitted expense starts as `checking`; the
+	// verify step routes it to `ok` or `need_check` (or `after_modify_check` on a
+	// re-check after HQ requested a modify). HQ resolves flags via cancel/modify/
+	// correct. Only `cancelled` is excluded from balances. `reviewNote` is HQ's
+	// optional reason shown to the branch; `modifyCount` tracks modify rounds.
+	reviewStatus: text("review_status").notNull().default("checking"),
+	reviewNote: text("review_note"),
+	modifyCount: integer("modify_count").notNull().default(0),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 });

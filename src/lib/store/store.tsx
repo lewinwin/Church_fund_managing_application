@@ -15,17 +15,22 @@ import { useAuth } from "#/lib/auth/auth";
 import {
 	addToPlanTargetFn,
 	bootstrapFn,
+	cancelExpenseFn,
 	changePasswordFn,
+	confirmModificationFn,
 	createBranchFn,
 	createCategoryFn,
 	createFundingPlanFn,
 	createUserFn,
 	recordFundReleaseFn,
+	requestModifyFn,
 	submitExpenseFn,
 	toggleCategoryActiveFn,
 	updateCategoryFn,
+	updateExpenseFieldsFn,
 	updateFundingPlanFn,
 	updateUserFn,
+	verifyExpenseFn,
 } from "#/lib/server/fns";
 import type {
 	AppData,
@@ -37,7 +42,12 @@ import type {
 	User,
 } from "#/lib/types";
 
-export type NewExpense = Omit<Expense, "id" | "createdAt">;
+// Review fields (reviewStatus/reviewNote/modifyCount) are set server-side, so the
+// client never supplies them when submitting.
+export type NewExpense = Omit<
+	Expense,
+	"id" | "createdAt" | "reviewStatus" | "reviewNote" | "modifyCount"
+>;
 export type NewFundingPlan = Omit<FundingPlan, "id" | "createdAt">;
 export type NewFundRelease = Omit<FundRelease, "id" | "createdAt">;
 
@@ -50,10 +60,25 @@ const EMPTY: AppData = {
 	fundReleases: [],
 };
 
+export interface EditExpenseInput {
+	localAmount: number;
+	expenseDate: string;
+	categoryId: string;
+	otherSubcategoryId: string | null;
+	description: string;
+}
+
 interface StoreContextValue {
 	data: AppData;
 	hydrated: boolean;
-	addExpense: (input: NewExpense) => Promise<void>;
+	/** Submits the expense and returns its new id (so the caller can verify it). */
+	addExpense: (input: NewExpense) => Promise<string>;
+	/** Runs OCR verification and refreshes; used post-submit and for Re-check. */
+	verifyExpense: (expenseId: string) => Promise<void>;
+	cancelExpense: (expenseId: string, note: string | null) => Promise<void>;
+	requestModify: (expenseId: string, note: string | null) => Promise<void>;
+	confirmModification: (expenseId: string) => Promise<void>;
+	editExpense: (expenseId: string, input: EditExpenseInput) => Promise<void>;
 	addFundingPlan: (input: NewFundingPlan) => Promise<void>;
 	updateFundingPlan: (id: string, patch: Partial<FundingPlan>) => Promise<void>;
 	addFundRelease: (input: NewFundRelease) => Promise<void>;
@@ -111,7 +136,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
 	const addExpense = useCallback<StoreContextValue["addExpense"]>(
 		async (input) => {
-			await submitExpenseFn({
+			const id = await submitExpenseFn({
 				data: {
 					description: input.description,
 					expenseDate: input.expenseDate,
@@ -126,6 +151,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 					ocrConfidence: input.ocrConfidence,
 				},
 			});
+			await refresh();
+			return id;
+		},
+		[refresh],
+	);
+
+	const verifyExpense = useCallback<StoreContextValue["verifyExpense"]>(
+		async (expenseId) => {
+			await verifyExpenseFn({ data: { expenseId } });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const cancelExpense = useCallback<StoreContextValue["cancelExpense"]>(
+		async (expenseId, note) => {
+			await cancelExpenseFn({ data: { expenseId, note } });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const requestModify = useCallback<StoreContextValue["requestModify"]>(
+		async (expenseId, note) => {
+			await requestModifyFn({ data: { expenseId, note } });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const confirmModification = useCallback<
+		StoreContextValue["confirmModification"]
+	>(
+		async (expenseId) => {
+			await confirmModificationFn({ data: { expenseId } });
+			await refresh();
+		},
+		[refresh],
+	);
+
+	const editExpense = useCallback<StoreContextValue["editExpense"]>(
+		async (expenseId, input) => {
+			await updateExpenseFieldsFn({ data: { expenseId, ...input } });
 			await refresh();
 		},
 		[refresh],
@@ -256,6 +324,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			data,
 			hydrated,
 			addExpense,
+			verifyExpense,
+			cancelExpense,
+			requestModify,
+			confirmModification,
+			editExpense,
 			addFundingPlan,
 			updateFundingPlan,
 			addFundRelease,
@@ -273,6 +346,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			data,
 			hydrated,
 			addExpense,
+			verifyExpense,
+			cancelExpense,
+			requestModify,
+			confirmModification,
+			editExpense,
 			addFundingPlan,
 			updateFundingPlan,
 			addFundRelease,

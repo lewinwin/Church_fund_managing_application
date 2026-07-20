@@ -65,6 +65,15 @@ export function expensesForBranch(data: AppData, branchId: string): Expense[] {
 	return data.expenses.filter((e) => e.branchId === branchId);
 }
 
+/** Expenses that count toward a branch's balance: everything except `cancelled`.
+ *  Cancelled transactions are retained for the audit trail but never affect
+ *  spent/remaining. Use this for money math; use expensesForBranch for display. */
+export function fundableExpenses(data: AppData, branchId: string): Expense[] {
+	return data.expenses.filter(
+		(e) => e.branchId === branchId && e.reviewStatus !== "cancelled",
+	);
+}
+
 export function activePlanForBranch(
 	data: AppData,
 	branchId: string,
@@ -82,7 +91,7 @@ export function branchFinancials(
 		releasesForBranch(data, branchId).reduce((s, r) => s + r.amountUsd, 0),
 	);
 	const spentUsd = round2(
-		expensesForBranch(data, branchId).reduce((s, e) => s + e.usdAmount, 0),
+		fundableExpenses(data, branchId).reduce((s, e) => s + e.usdAmount, 0),
 	);
 	const remainingUsd = round2(releasedUsd - spentUsd);
 	const percentUsed = releasedUsd > 0 ? spentUsd / releasedUsd : 0;

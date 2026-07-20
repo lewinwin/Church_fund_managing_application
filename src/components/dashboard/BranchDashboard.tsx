@@ -11,6 +11,7 @@ import {
 	activePlanForBranch,
 	branchFinancials,
 	expensesForBranch,
+	fundableExpenses,
 	remainingLocal,
 } from "#/lib/calc";
 import { usdToLocal } from "#/lib/currency/exchangeRate";
@@ -24,6 +25,8 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 
 	const fin = branchFinancials(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
+	// Cancelled expenses are shown in lists but must not skew the category chart.
+	const fundable = fundableExpenses(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
 	const cur = branch.localCurrency;
 	const remLocal = remainingLocal(data, branch.id);
@@ -123,7 +126,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 						</SectionCard>
 					) : (
 						<CategoryDonutCard
-							expenses={expenses}
+							expenses={fundable}
 							categories={data.categories}
 							displayCurrency={cur}
 							displayRate={branch.exchangeRateToUsd}

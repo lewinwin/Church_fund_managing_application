@@ -87,6 +87,9 @@ async function main() {
 			receiptDataUrl: e.receiptDataUrl,
 			ocrConfidence: e.ocrConfidence,
 			ocrRaw: e.ocrRaw,
+			// Seed expenses are historical/verified — they start as `ok`, not
+			// `checking`, so they display normally without an OCR pass.
+			reviewStatus: "ok",
 			createdAt: new Date(e.createdAt),
 		})),
 	);

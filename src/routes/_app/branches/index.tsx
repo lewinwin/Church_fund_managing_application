@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight } from "lucide-react";
+import { HqReviewCard } from "#/components/receipts/HqReviewCard";
 import { type Column, DataTable } from "#/components/ui/DataTable";
-import { ProgressBar, SectionCard } from "#/components/ui/primitives";
-import { branchFinancials } from "#/lib/calc";
+import { EmptyState, ProgressBar, SectionCard } from "#/components/ui/primitives";
+import { branchById, branchFinancials } from "#/lib/calc";
 import { formatPercent, formatUsd } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 
@@ -18,6 +19,16 @@ function BranchesPage() {
 		branch: b,
 		fin: branchFinancials(data, b.id),
 	}));
+
+	// Cross-branch review queue: everything OCR flagged or that came back after a
+	// modify, newest first.
+	const flagged = data.expenses
+		.filter(
+			(e) =>
+				e.reviewStatus === "need_check" ||
+				e.reviewStatus === "after_modify_check",
+		)
+		.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
 	const columns: Column<(typeof rows)[number]>[] = [
 		{
@@ -85,7 +96,42 @@ function BranchesPage() {
 	];
 
 	return (
-		<SectionCard title="All branches">
+		<div className="space-y-5">
+			<SectionCard
+				title={
+					<span className="flex items-center gap-2">
+						<AlertTriangle
+							size={16}
+							className="text-[var(--color-warning)]"
+						/>
+						Needs Check ({flagged.length})
+					</span>
+				}
+			>
+				{flagged.length === 0 ? (
+					<EmptyState
+						title="Nothing to review"
+						description="Transactions that don't match their receipt will appear here for review."
+					/>
+				) : (
+					<div className="space-y-3">
+						{flagged.map((e) => {
+							const b = branchById(data.branches, e.branchId);
+							return (
+								<HqReviewCard
+									key={e.id}
+									expense={e}
+									categories={data.categories}
+									currency={b?.localCurrency ?? "USD"}
+									branchName={b?.name}
+								/>
+							);
+						})}
+					</div>
+				)}
+			</SectionCard>
+
+			<SectionCard title="All branches">
 			<DataTable
 				columns={columns}
 				rows={rows}
@@ -97,6 +143,7 @@ function BranchesPage() {
 					})
 				}
 			/>
-		</SectionCard>
+			</SectionCard>
+		</div>
 	);
 }

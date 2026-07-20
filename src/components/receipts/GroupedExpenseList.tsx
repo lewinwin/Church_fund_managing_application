@@ -4,6 +4,7 @@ import { EmptyState, Select } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
 import { formatAmount } from "#/lib/format";
 import type { Category, CurrencyCode, Expense } from "#/lib/types";
+import { ReviewBadge } from "./ReviewBadge";
 
 // Reference-style accordion: Month → Day → Transactions, each level showing a
 // total. Branch views total in local currency; HQ branch-detail passes
@@ -142,15 +143,20 @@ export function GroupedExpenseList({
 														<span className="block truncate text-sm text-[var(--color-ink)]">
 															{e.description}
 														</span>
-														<span className="block truncate text-xs text-[var(--color-muted)]">
+														<span className="flex items-center gap-1.5 truncate text-xs text-[var(--color-muted)]">
 															{categoryLabel(
 																categories,
 																e.categoryId,
 																e.otherSubcategoryId,
 															)}
+															<ReviewBadge status={e.reviewStatus} />
 														</span>
 													</span>
-													<span className="shrink-0 text-sm font-medium text-[var(--color-negative)]">
+													<span
+														className={`shrink-0 text-sm font-medium text-[var(--color-negative)] ${
+															e.reviewStatus === "cancelled" ? "line-through opacity-60" : ""
+														}`}
+													>
 														−{fmt(showUsd ? e.usdAmount : e.localAmount)}
 													</span>
 												</button>
@@ -218,7 +224,11 @@ function groupByMonth(expenses: Expense[], showUsd: boolean): MonthGroup[] {
 }
 
 function sumAmount(list: Expense[], showUsd: boolean): number {
-	return list.reduce((s, e) => s + (showUsd ? e.usdAmount : e.localAmount), 0);
+	// Cancelled transactions are shown (marked) but excluded from the subtotals so
+	// month/day totals match the branch's actual spend.
+	return list
+		.filter((e) => e.reviewStatus !== "cancelled")
+		.reduce((s, e) => s + (showUsd ? e.usdAmount : e.localAmount), 0);
 }
 
 function formatMonth(ym: string): string {

@@ -16,10 +16,21 @@ import type {
 	FundingPlanStatus,
 	FundRelease,
 	JsonValue,
+	ReviewStatus,
 	Role,
 	User,
 } from "#/lib/types";
+import { runReceiptVerification } from "./ocr";
 import { type AuthCtx, branchScope } from "./scope";
+import {
+	canBranchEdit,
+	canCancel,
+	canCorrect,
+	canModify,
+	compareReceipt,
+	nextStatusAfterVerify,
+	statusAfterCorrect,
+} from "./verify";
 
 const iso = (d: Date | string) => (typeof d === "string" ? d : d.toISOString());
 
@@ -59,6 +70,9 @@ function mapExpense(r: typeof t.expenses.$inferSelect): Expense {
 		receiptDataUrl: r.receiptDataUrl,
 		ocrConfidence: r.ocrConfidence,
 		ocrRaw: (r.ocrRaw as JsonValue | null) ?? null,
+		reviewStatus: r.reviewStatus as ReviewStatus,
+		reviewNote: r.reviewNote,
+		modifyCount: r.modifyCount,
 		createdAt: iso(r.createdAt),
 	};
 }
@@ -178,6 +192,157 @@ export async function submitExpense(ctx: AuthCtx, input: SubmitExpenseInput) {
 
 function assertHq(ctx: AuthCtx) {
 	if (ctx.role !== "hq_admin") throw new Error("HQ Admin only");
+}
+
+// ---------------------------------------------------------------------------
+// OCR verification workflow (see OCR_VERIFY_DESIGN.md)
+// ---------------------------------------------------------------------------
+
+async function loadExpense(id: string) {
+	const [row] = await db.select().from(t.expenses).where(eq(t.expenses.id, id));
+	if (!row) throw new Error("Expense not found");
+	return row;
+}
+
+/** Run OCR verification for a submitted expense and route it to a status.
+ *  Callable by HQ or the owning branch (the post-submit trigger and Re-check).
+ *  Never cancels/approves on its own — only ok / need_check / after_modify_check. */
+export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
+	const exp = await loadExpense(expenseId);
+	if (!(ctx.role === "hq_admin" || ctx.branchId === exp.branchId)) {
+		throw new Error("Not allowed to verify this expense");
+	}
+
+	const cats = await db.select().from(t.expenseCategories);
+	const chosenCategory = cats.find((c) => c.id === exp.categoryId)?.name ?? "Unknown";
+	const categoryNames = cats
+		.filter((c) => c.parentId === null && c.active)
+		.map((c) => c.name);
+
+	// No receipt to check against → can't confirm → route to human review.
+	if (!exp.receiptDataUrl) {
+		const status = nextStatusAfterVerify(exp.modifyCount, true);
+		await db
+			.update(t.expenses)
+			.set({
+				reviewStatus: status,
+				ocrRaw: { error: "no receipt", checkedAt: new Date().toISOString() },
+			})
+			.where(eq(t.expenses.id, expenseId));
+		return { status };
+	}
+
+	const ocr = await runReceiptVerification(exp.receiptDataUrl, {
+		enteredAmount: exp.localAmount,
+		enteredDate: exp.expenseDate,
+		chosenCategory,
+		categoryNames,
+	});
+	const cmp = compareReceipt(
+		{ amount: exp.localAmount, date: exp.expenseDate },
+		ocr,
+	);
+	const status = nextStatusAfterVerify(exp.modifyCount, cmp.needsCheck);
+	await db
+		.update(t.expenses)
+		.set({
+			reviewStatus: status,
+			ocrConfidence: ocr.overallConfidence,
+			ocrRaw: { ...ocr, ...cmp, checkedAt: new Date().toISOString() },
+		})
+		.where(eq(t.expenses.id, expenseId));
+	return { status };
+}
+
+/** HQ rejects a flagged transaction. Retained (audit trail) but excluded from
+ *  balances. Optional note is shown to the branch. */
+export async function cancelExpense(
+	ctx: AuthCtx,
+	expenseId: string,
+	note: string | null,
+) {
+	assertHq(ctx);
+	const exp = await loadExpense(expenseId);
+	if (!canCancel(exp.reviewStatus as ReviewStatus)) {
+		throw new Error(`Cannot cancel from status "${exp.reviewStatus}"`);
+	}
+	await db
+		.update(t.expenses)
+		.set({ reviewStatus: "cancelled", reviewNote: note })
+		.where(eq(t.expenses.id, expenseId));
+}
+
+/** HQ returns a flagged transaction to the branch to correct. */
+export async function requestModify(
+	ctx: AuthCtx,
+	expenseId: string,
+	note: string | null,
+) {
+	assertHq(ctx);
+	const exp = await loadExpense(expenseId);
+	if (!canModify(exp.reviewStatus as ReviewStatus)) {
+		throw new Error(`Cannot modify from status "${exp.reviewStatus}"`);
+	}
+	await db
+		.update(t.expenses)
+		.set({
+			reviewStatus: "modify_requested",
+			reviewNote: note,
+			modifyCount: (exp.modifyCount ?? 0) + 1,
+		})
+		.where(eq(t.expenses.id, expenseId));
+}
+
+/** HQ approves a flagged transaction. After a modify round this confirms the
+ *  correction (`correct_modification`); on a first-pass flag it's HQ overriding
+ *  the OCR flag and accepting the entry as-is (`ok`). HQ's call is final. */
+export async function confirmModification(ctx: AuthCtx, expenseId: string) {
+	assertHq(ctx);
+	const exp = await loadExpense(expenseId);
+	const status = exp.reviewStatus as ReviewStatus;
+	if (!canCorrect(status)) {
+		throw new Error(`Cannot confirm from status "${exp.reviewStatus}"`);
+	}
+	await db
+		.update(t.expenses)
+		.set({ reviewStatus: statusAfterCorrect(status) })
+		.where(eq(t.expenses.id, expenseId));
+}
+
+/** The owning branch corrects a returned transaction (typed fields only). The
+ *  receipt image stays fixed. Resets to `checking` so it re-verifies; the caller
+ *  then triggers verifyExpense (which routes it to after_modify_check). */
+export async function updateExpenseFields(
+	ctx: AuthCtx,
+	expenseId: string,
+	input: {
+		localAmount: number;
+		expenseDate: string;
+		categoryId: string;
+		otherSubcategoryId: string | null;
+		description: string;
+	},
+) {
+	const exp = await loadExpense(expenseId);
+	if (ctx.role !== "branch_user" || ctx.branchId !== exp.branchId) {
+		throw new Error("Only the owning branch can edit this expense");
+	}
+	if (!canBranchEdit(exp.reviewStatus as ReviewStatus)) {
+		throw new Error("Only a returned (modify_requested) expense can be edited");
+	}
+	if (!(input.localAmount > 0)) throw new Error("Amount must be greater than 0");
+	await db
+		.update(t.expenses)
+		.set({
+			localAmount: input.localAmount,
+			usdAmount: input.localAmount * exp.exchangeRateToUsd,
+			expenseDate: input.expenseDate,
+			categoryId: input.categoryId,
+			otherSubcategoryId: input.otherSubcategoryId,
+			description: input.description,
+			reviewStatus: "checking",
+		})
+		.where(eq(t.expenses.id, expenseId));
 }
 
 export async function createFundingPlan(

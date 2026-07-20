@@ -1,11 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-	CheckCircle2,
-	Loader2,
-	ScanLine,
-	Sparkles,
-	Upload,
-} from "lucide-react";
+import { CheckCircle2, ShieldCheck, Upload } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useState } from "react";
 import { ReceiptPreview } from "#/components/receipts/ReceiptPreview";
 import {
@@ -14,22 +8,18 @@ import {
 	Field,
 	Input,
 	Select,
-	StatusPill,
 	Textarea,
 } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById, primaryCategories, subCategories } from "#/lib/calc";
 import { rateToUsd, toUsd } from "#/lib/currency/exchangeRate";
 import { formatMoney, todayIso } from "#/lib/format";
-import { ocrExtractFn } from "#/lib/server/fns";
 import { useStore } from "#/lib/store/store";
 import type { CurrencyCode } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/submit-receipt")({
 	component: SubmitReceiptPage,
 });
-
-type OcrStatus = "idle" | "processing" | "done" | "failed";
 
 const CURRENCIES: CurrencyCode[] = ["SGD", "MWK", "ZAR", "CRC", "USD"];
 
@@ -44,18 +34,15 @@ function fileToDataUrl(file: File): Promise<string> {
 
 function SubmitReceiptPage() {
 	const { user } = useAuth();
-	const { data, addExpense } = useStore();
+	const { data, addExpense, verifyExpense } = useStore();
 	const navigate = useNavigate();
 
 	const branch = branchById(data.branches, user?.branchId ?? null);
 
 	const [fileName, setFileName] = useState<string | null>(null);
 	const [dataUrl, setDataUrl] = useState<string | null>(null);
-	const [ocrStatus, setOcrStatus] = useState<OcrStatus>("idle");
-	const [simulateFailure, setSimulateFailure] = useState(false);
-	const [confidence, setConfidence] = useState<number | null>(null);
 
-	// Editable review form (source of truth).
+	// Manual entry — the branch types everything; OCR verifies it after submit.
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
 	const [currency, setCurrency] = useState<CurrencyCode>(
@@ -65,6 +52,7 @@ function SubmitReceiptPage() {
 	const [categoryId, setCategoryId] = useState("");
 	const [subId, setSubId] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const [submitting, setSubmitting] = useState(false);
 	const [submitted, setSubmitted] = useState(false);
 
 	if (!branch) return null;
@@ -75,45 +63,13 @@ function SubmitReceiptPage() {
 
 	async function handleFile(e: ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
-		if (!file || !branch) return;
+		if (!file) return;
 		setFileName(file.name);
 		setError(null);
-
-		const url = await fileToDataUrl(file);
-		setDataUrl(url);
-
-		// Test path: skip the real OCR call so the manual-entry fallback can be
-		// checked without spending an API request.
-		if (simulateFailure) {
-			setOcrStatus("failed");
-			setConfidence(0.12);
-			setCurrency(branch.localCurrency);
-			return;
-		}
-
-		setOcrStatus("processing");
-		try {
-			const result = await ocrExtractFn({ data: { dataUrl: url } });
-			// Pre-fill whatever the model returned; the user reviews everything.
-			setConfidence(result.confidence);
-			setCurrency(result.currency ?? branch.localCurrency);
-			if (result.date) setExpenseDate(result.date);
-			if (result.description) setDescription(result.description);
-
-			if (result.amount == null) {
-				// Low confidence / unreadable — leave amount empty for manual entry.
-				setOcrStatus("failed");
-				return;
-			}
-			setAmount(String(result.amount));
-			setOcrStatus("done");
-		} catch {
-			setOcrStatus("failed");
-			setCurrency(branch.localCurrency);
-		}
+		setDataUrl(await fileToDataUrl(file));
 	}
 
-	function handleSubmit(e: FormEvent) {
+	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		if (!branch) return;
 		const amt = Number(amount);
@@ -124,35 +80,45 @@ function SubmitReceiptPage() {
 		if (!categoryId) return setError("Select a category.");
 		if (requiresSub && !subId)
 			return setError('A sub-category is required when "Other" is selected.');
+		if (!dataUrl) return setError("Upload the receipt image before submitting.");
 
 		const rate =
 			currency === branch.localCurrency
 				? branch.exchangeRateToUsd
 				: rateToUsd(currency);
-		addExpense({
-			branchId: branch.id,
-			submittedByUserId: user?.id ?? "",
-			description: description.trim(),
-			expenseDate,
-			localAmount: Math.round(amt * 100) / 100,
-			localCurrency: currency,
-			exchangeRateToUsd: rate,
-			usdAmount: toUsd(amt, rate),
-			categoryId,
-			otherSubcategoryId: requiresSub ? subId : null,
-			receiptFileName: fileName,
-			receiptDataUrl: dataUrl,
-			ocrConfidence: confidence,
-			ocrRaw: null,
-		});
-		setSubmitted(true);
+
+		setSubmitting(true);
+		try {
+			const id = await addExpense({
+				branchId: branch.id,
+				submittedByUserId: user?.id ?? "",
+				description: description.trim(),
+				expenseDate,
+				localAmount: Math.round(amt * 100) / 100,
+				localCurrency: currency,
+				exchangeRateToUsd: rate,
+				usdAmount: toUsd(amt, rate),
+				categoryId,
+				otherSubcategoryId: requiresSub ? subId : null,
+				receiptFileName: fileName,
+				receiptDataUrl: dataUrl,
+				ocrConfidence: null,
+				ocrRaw: null,
+			});
+			// Fire the background verification — don't block the success screen.
+			// If the tab closes before it lands, HQ/branch can Re-check later.
+			void verifyExpense(id);
+			setSubmitted(true);
+		} catch {
+			setError("Could not submit. Please try again.");
+		} finally {
+			setSubmitting(false);
+		}
 	}
 
 	function resetForm() {
 		setFileName(null);
 		setDataUrl(null);
-		setOcrStatus("idle");
-		setConfidence(null);
 		setDescription("");
 		setAmount("");
 		setCurrency(branch?.localCurrency ?? "USD");
@@ -176,8 +142,9 @@ function SubmitReceiptPage() {
 				</div>
 				<h2 className="text-xl font-bold">Expense submitted</h2>
 				<p className="mt-2 text-sm text-[var(--color-muted)]">
-					{description} · {localPreview} was added to {branch.name}. Your
-					dashboard and receipts list have been updated.
+					{description} · {localPreview} was added to {branch.name}. It's being
+					verified against the receipt — if anything doesn't match, HQ will
+					review it.
 				</p>
 				<div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
 					<Button onClick={() => navigate({ to: "/expenses" })}>
@@ -193,24 +160,22 @@ function SubmitReceiptPage() {
 
 	return (
 		<div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-			{/* Upload + OCR state */}
+			{/* Upload */}
 			<div className="space-y-5">
 				<Card className="p-5">
 					<h3 className="text-base font-semibold">1 · Upload receipt</h3>
 					<p className="mt-1 text-sm text-[var(--color-muted)]">
-						JPG, PNG, HEIF or PDF. OCR will try to read the details — you can
-						correct anything.
+						JPG, PNG, HEIF or PDF. Enter the details yourself on the right — the
+						receipt is checked against them after you submit.
 					</p>
 
 					<label className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-forest-200)] bg-[var(--color-forest-50)] px-6 py-10 text-center transition-colors hover:border-[var(--color-forest-400)]">
 						<Upload size={26} className="text-[var(--color-forest-500)]" />
 						<span className="text-sm font-medium text-[var(--color-forest-800)]">
-							{fileName
-								? "Choose a different file"
-								: "Click to upload a receipt"}
+							{fileName ? "Choose a different file" : "Click to upload a receipt"}
 						</span>
 						<span className="text-xs text-[var(--color-muted)]">
-							Sent securely to read the receipt automatically
+							Required — kept with the transaction for verification
 						</span>
 						<input
 							type="file"
@@ -220,75 +185,35 @@ function SubmitReceiptPage() {
 						/>
 					</label>
 
-					<label className="mt-3 flex items-center gap-2 text-xs text-[var(--color-muted)]">
-						<input
-							type="checkbox"
-							checked={simulateFailure}
-							onChange={(e) => setSimulateFailure(e.target.checked)}
-							className="accent-[var(--color-forest-700)]"
-						/>
-						Simulate OCR failure (test manual entry fallback)
-					</label>
+					{dataUrl && (
+						<div className="mt-4">
+							<ReceiptPreview
+								dataUrl={dataUrl}
+								fileName={fileName}
+								height={200}
+							/>
+						</div>
+					)}
 				</Card>
 
-				{ocrStatus !== "idle" && (
-					<Card className="p-5">
-						<div className="mb-3 flex items-center justify-between">
-							<h3 className="text-base font-semibold">OCR status</h3>
-							{ocrStatus === "processing" && (
-								<span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-forest-600)]">
-									<Loader2 size={14} className="animate-spin" /> Reading…
-								</span>
-							)}
-							{ocrStatus === "done" && <StatusPill status="healthy" />}
-							{ocrStatus === "failed" && (
-								<span className="rounded-full bg-[#fbf1dd] px-2.5 py-1 text-xs font-semibold text-[#b7841f]">
-									Low confidence
-								</span>
-							)}
-						</div>
-
-						{ocrStatus === "processing" && (
-							<div className="flex items-center gap-3 rounded-xl bg-[var(--color-forest-50)] px-4 py-5 text-[var(--color-forest-700)]">
-								<ScanLine size={20} className="animate-pulse" />
-								<span className="text-sm">
-									Extracting amount, currency and date…
-								</span>
-							</div>
-						)}
-						{ocrStatus === "done" && (
-							<p className="flex items-center gap-2 text-sm text-[var(--color-positive)]">
-								<Sparkles size={16} /> Fields pre-filled
-								{confidence != null &&
-									` at ${Math.round(confidence * 100)}% confidence`}
-								. Review them on the right.
-							</p>
-						)}
-						{ocrStatus === "failed" && (
-							<p className="text-sm text-[var(--color-muted)]">
-								OCR couldn't read this receipt. No problem — enter the details
-								manually on the right. Submission is never blocked by OCR.
-							</p>
-						)}
-
-						{dataUrl && (
-							<div className="mt-4">
-								<ReceiptPreview
-									dataUrl={dataUrl}
-									fileName={fileName}
-									height={200}
-								/>
-							</div>
-						)}
-					</Card>
-				)}
+				<Card className="flex items-start gap-3 p-4 text-sm text-[var(--color-muted)]">
+					<ShieldCheck
+						size={18}
+						className="mt-0.5 shrink-0 text-[var(--color-forest-600)]"
+					/>
+					<span>
+						After you submit, we compare the receipt's amount, date and category
+						with what you entered. A mismatch is flagged for HQ — it doesn't
+						block your submission.
+					</span>
+				</Card>
 			</div>
 
-			{/* Review form */}
+			{/* Manual entry form */}
 			<Card className="p-5">
-				<h3 className="text-base font-semibold">2 · Review & confirm</h3>
+				<h3 className="text-base font-semibold">2 · Enter the details</h3>
 				<p className="mt-1 text-sm text-[var(--color-muted)]">
-					Your corrections are final — OCR output is only a suggestion.
+					Type the transaction exactly as it appears on the receipt.
 				</p>
 
 				<form onSubmit={handleSubmit} className="mt-4 space-y-4">
@@ -375,8 +300,8 @@ function SubmitReceiptPage() {
 						</p>
 					)}
 
-					<Button type="submit" className="w-full">
-						Submit expense
+					<Button type="submit" className="w-full" disabled={submitting}>
+						{submitting ? "Submitting…" : "Submit expense"}
 					</Button>
 				</form>
 			</Card>

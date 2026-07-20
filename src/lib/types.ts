@@ -14,6 +14,23 @@ export type FundingPlanStatus = "active" | "closed" | "cancelled";
 
 export type BalanceStatus = "healthy" | "warning" | "low";
 
+// OCR verification lifecycle for a submitted expense. See OCR_VERIFY_DESIGN.md.
+//  checking            – submitted; OCR verification pending/running
+//  ok                  – OCR matched (amount+date+category, confident); shows normally
+//  need_check          – OCR flagged a mismatch/low confidence; awaits HQ review
+//  cancelled           – HQ rejected; retained but excluded from balances
+//  modify_requested    – HQ returned it to the branch to correct
+//  after_modify_check  – branch resubmitted; re-checked; awaits HQ 2nd review
+//  correct_modification– HQ confirmed the correction; final good state
+export type ReviewStatus =
+	| "checking"
+	| "ok"
+	| "need_check"
+	| "cancelled"
+	| "modify_requested"
+	| "after_modify_check"
+	| "correct_modification";
+
 /** JSON-serializable value (safe to send across the server-function boundary). */
 export type JsonValue =
 	| string
@@ -73,6 +90,12 @@ export interface Expense {
 	receiptDataUrl: string | null;
 	ocrConfidence: number | null;
 	ocrRaw: JsonValue | null;
+	/** OCR verification lifecycle status. Only `cancelled` is excluded from balances. */
+	reviewStatus: ReviewStatus;
+	/** HQ's optional note on Cancel/Modify, shown to the branch. */
+	reviewNote: string | null;
+	/** Number of times HQ has sent this back for modification. */
+	modifyCount: number;
 	createdAt: string;
 }
 
