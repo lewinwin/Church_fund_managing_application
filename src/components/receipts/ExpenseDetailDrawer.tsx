@@ -59,55 +59,68 @@ export function ExpenseDetailDrawer({
 		expense.reviewStatus !== "correct_modification";
 
 	return (
-		<Drawer open={!!expense} onClose={onClose} title="Receipt detail">
+		// When HQ is reviewing, the drawer widens and the receipt sits beside the
+		// details so the decision panel below gets the full width (rather than
+		// being squeezed tall and narrow).
+		<Drawer
+			open={!!expense}
+			onClose={onClose}
+			title="Receipt detail"
+			width={showReview ? "max-w-3xl" : "max-w-md"}
+		>
 			{expense && (
 				<div className="space-y-5">
-					<div>
-						<div className="mb-2 flex items-center justify-between gap-3">
-							<div className="flex flex-wrap items-center gap-2">
-								<h4 className="text-lg font-bold">{expense.description}</h4>
-								<ReviewBadge status={expense.reviewStatus} />
-							</div>
-							<Badge tone="lime">
-								{showUsd
-									? formatUsd(expense.usdAmount)
-									: formatMoney(expense.localAmount, expense.localCurrency)}
-							</Badge>
+					<div className="flex items-center justify-between gap-3">
+						<div className="flex flex-wrap items-center gap-2">
+							<h4 className="text-lg font-bold">{expense.description}</h4>
+							<ReviewBadge status={expense.reviewStatus} />
 						</div>
+						<Badge tone="lime">
+							{showUsd
+								? formatUsd(expense.usdAmount)
+								: formatMoney(expense.localAmount, expense.localCurrency)}
+						</Badge>
+					</div>
+
+					<div
+						className={showReview ? "grid gap-5 lg:grid-cols-2" : "space-y-5"}
+					>
 						<ReceiptPreview
 							dataUrl={expense.receiptDataUrl}
 							fileName={expense.receiptFileName}
 						/>
-					</div>
 
-					<div className="rounded-xl border border-[var(--color-line)] px-4 py-1">
-						<Row label="Branch">{branch?.name ?? "—"}</Row>
-						<Row label="Expense date">{formatDate(expense.expenseDate)}</Row>
-						<Row label="Category">
-							{categoryLabel(
-								categories,
-								expense.categoryId,
-								expense.otherSubcategoryId,
-							)}
-						</Row>
-						<Row label={showUsd ? "Local amount" : "Amount"}>
-							{formatMoney(expense.localAmount, expense.localCurrency)}
-						</Row>
-						{showUsd && (
-							<Row label="Exchange rate">
-								1 {expense.localCurrency} = {expense.exchangeRateToUsd} USD
+						<div className="rounded-xl border border-[var(--color-line)] px-4 py-1">
+							<Row label="Branch">{branch?.name ?? "—"}</Row>
+							<Row label="Expense date">{formatDate(expense.expenseDate)}</Row>
+							<Row label="Category">
+								{categoryLabel(
+									categories,
+									expense.categoryId,
+									expense.otherSubcategoryId,
+								)}
 							</Row>
-						)}
-						{showUsd && (
-							<Row label="USD equivalent">{formatUsd(expense.usdAmount)}</Row>
-						)}
-						<Row label="Submitted by">{submitter?.name ?? "—"}</Row>
-						<Row label="Submitted at">{formatDateTime(expense.createdAt)}</Row>
-						<Row label="OCR confidence">
-							{expense.ocrConfidence != null
-								? `${Math.round(expense.ocrConfidence * 100)}%`
-								: "Manual entry"}
-						</Row>
+							<Row label={showUsd ? "Local amount" : "Amount"}>
+								{formatMoney(expense.localAmount, expense.localCurrency)}
+							</Row>
+							{showUsd && (
+								<Row label="Exchange rate">
+									1 {expense.localCurrency} = {expense.exchangeRateToUsd} USD
+								</Row>
+							)}
+							{showUsd && (
+								<Row label="USD equivalent">{formatUsd(expense.usdAmount)}</Row>
+							)}
+							<Row label="Submitted by">{submitter?.name ?? "—"}</Row>
+							<Row label="Submitted at">
+								{formatDateTime(expense.createdAt)}
+							</Row>
+							<Row label="OCR confidence">
+								{expense.ocrConfidence != null
+									? `${Math.round(expense.ocrConfidence * 100)}%`
+									: "Manual entry"}
+							</Row>
+						</div>
 					</div>
 
 					{showReview && (
