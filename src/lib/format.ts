@@ -9,11 +9,27 @@ const CURRENCY_LOCALE: Record<CurrencyCode, string> = {
 	CRC: "es-CR",
 };
 
-// Currencies with effectively no minor unit in everyday use.
+// Currencies we deliberately show without minor units, even though ISO defines
+// them (they're not used in everyday practice).
 const ZERO_DECIMAL: CurrencyCode[] = ["MWK", "CRC"];
 
+/** Decimal places for a currency. Explicit overrides first, otherwise ask Intl —
+ *  so a branch created with a new currency (VND has 0 minor units, THB has 2)
+ *  formats correctly without touching this file. */
+function decimalsFor(currency: CurrencyCode): number {
+	if (ZERO_DECIMAL.includes(currency)) return 0;
+	try {
+		return (
+			new Intl.NumberFormat("en-US", { style: "currency", currency })
+				.resolvedOptions().maximumFractionDigits ?? 2
+		);
+	} catch {
+		return 2;
+	}
+}
+
 export function formatMoney(amount: number, currency: CurrencyCode): string {
-	const fractionDigits = ZERO_DECIMAL.includes(currency) ? 0 : 2;
+	const fractionDigits = decimalsFor(currency);
 	try {
 		return new Intl.NumberFormat(CURRENCY_LOCALE[currency] ?? "en-US", {
 			style: "currency",
@@ -29,7 +45,7 @@ export function formatMoney(amount: number, currency: CurrencyCode): string {
 /** Number only, no currency symbol, with the currency's usual decimals.
  *  Used where the unit is shown once elsewhere (e.g. the fund-balance card). */
 export function formatAmount(amount: number, currency: CurrencyCode): string {
-	const fractionDigits = ZERO_DECIMAL.includes(currency) ? 0 : 2;
+	const fractionDigits = decimalsFor(currency);
 	return new Intl.NumberFormat("en-US", {
 		minimumFractionDigits: fractionDigits,
 		maximumFractionDigits: fractionDigits,

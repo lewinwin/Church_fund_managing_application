@@ -35,7 +35,6 @@ export interface OcrVerification {
 // pinned version is retired (as gemini-2.5-flash was for new accounts).
 // Override via GEMINI_MODEL to pin a specific one.
 const MODEL = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
-const VALID_CURRENCIES: CurrencyCode[] = ["SGD", "MWK", "ZAR", "CRC", "USD"];
 
 /** Call Gemini with an image + prompt, expecting a single JSON object back.
  *  Returns the parsed object, or null on any failure (never throws). */
@@ -95,11 +94,11 @@ function parseAmount(v: unknown): number | null {
 		: null;
 }
 
+// Any 3-letter ISO code — branches can be created with currencies beyond the
+// built-ins (VND, THB, …), so this must not be a fixed whitelist.
 function parseCurrency(v: unknown): CurrencyCode | null {
-	const raw = typeof v === "string" ? v.toUpperCase() : null;
-	return raw && VALID_CURRENCIES.includes(raw as CurrencyCode)
-		? (raw as CurrencyCode)
-		: null;
+	const raw = typeof v === "string" ? v.trim().toUpperCase() : null;
+	return raw && /^[A-Z]{3}$/.test(raw) ? (raw as CurrencyCode) : null;
 }
 
 function normalizeDate(value: unknown): string | null {
@@ -116,7 +115,7 @@ const EXTRACT_PROMPT = `Extract fields from this purchase receipt image. Respond
 {"amount": number|null, "currency": string|null, "date": string|null, "description": string|null, "confidence": number}
 
 - amount: the final total actually paid, digits only (no currency symbol, no thousands separators). Prefer the grand total / amount due.
-- currency: 3-letter ISO code (one of SGD, MWK, ZAR, CRC, USD) if determinable, else null.
+- currency: 3-letter ISO code (e.g. SGD, MWK, ZAR, CRC, USD, VND, THB) if determinable, else null.
 - date: the purchase date as YYYY-MM-DD, else null.
 - description: a short summary of the purchase (vendor name and/or what was bought), max 8 words.
 - confidence: a number from 0 to 1 for how confident you are in the extraction.

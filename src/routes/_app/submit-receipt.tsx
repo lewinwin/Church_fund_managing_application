@@ -15,13 +15,21 @@ import { branchById, primaryCategories, subCategories } from "#/lib/calc";
 import { rateToUsd, toUsd } from "#/lib/currency/exchangeRate";
 import { formatMoney, todayIso } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
-import type { CurrencyCode } from "#/lib/types";
+import { type CurrencyCode, KNOWN_CURRENCIES } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/submit-receipt")({
 	component: SubmitReceiptPage,
 });
 
-const CURRENCIES: CurrencyCode[] = ["SGD", "MWK", "ZAR", "CRC", "USD"];
+// The branch's own currency always comes first, then the built-ins. Derived from
+// the branch (not a fixed list) so a branch created with a new currency — VND,
+// THB, … — can actually select it.
+function currencyOptions(branchCurrency: CurrencyCode): CurrencyCode[] {
+	return [
+		branchCurrency,
+		...KNOWN_CURRENCIES.filter((c) => c !== branchCurrency),
+	];
+}
 
 function fileToDataUrl(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -242,7 +250,7 @@ function SubmitReceiptPage() {
 								value={currency}
 								onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
 							>
-								{CURRENCIES.map((c) => (
+								{currencyOptions(branch.localCurrency).map((c) => (
 									<option key={c} value={c}>
 										{c}
 										{c === branch.localCurrency ? " (branch)" : ""}
