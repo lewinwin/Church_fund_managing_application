@@ -35,7 +35,9 @@ function ExpensesPage() {
 
 	// Data isolation: only this branch's expenses are ever loaded.
 	const expenses = expensesForBranch(data, branch.id);
-	const returned = expenses.filter((e) => e.reviewStatus === "modify_requested");
+	const returned = expenses.filter(
+		(e) => e.reviewStatus === "modify_requested",
+	);
 	const fin = branchFinancials(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
 	const cur = branch.localCurrency;
@@ -69,12 +71,18 @@ function ExpensesPage() {
 								<div className="min-w-0">
 									<p className="font-semibold">{e.description}</p>
 									<p className="mt-0.5 text-sm text-[var(--color-muted)]">
-										{categoryLabel(data.categories, e.categoryId, e.otherSubcategoryId)}{" "}
-										· {formatMoney(e.localAmount, cur)} · {formatDate(e.expenseDate)}
+										{categoryLabel(
+											data.categories,
+											e.categoryId,
+											e.otherSubcategoryId,
+										)}{" "}
+										· {formatMoney(e.localAmount, cur)} ·{" "}
+										{formatDate(e.expenseDate)}
 									</p>
 									{e.reviewNote && (
 										<p className="mt-1 text-sm text-[#2f5bb7]">
-											<span className="font-semibold">HQ note:</span> {e.reviewNote}
+											<span className="font-semibold">HQ note:</span>{" "}
+											{e.reviewNote}
 										</p>
 									)}
 								</div>
@@ -117,6 +125,7 @@ function ExpensesPage() {
 				users={data.users}
 				onClose={() => setSelected(null)}
 				showUsd={false}
+				onCorrect={setEditing}
 			/>
 			<EditExpenseModal expense={editing} onClose={() => setEditing(null)} />
 		</div>

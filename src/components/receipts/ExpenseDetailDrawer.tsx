@@ -1,6 +1,7 @@
+import { PencilLine } from "lucide-react";
 import type { ReactNode } from "react";
 import { Drawer } from "#/components/ui/Overlay";
-import { Badge } from "#/components/ui/primitives";
+import { Badge, Button } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel } from "#/lib/calc";
 import {
@@ -32,6 +33,7 @@ export function ExpenseDetailDrawer({
 	users,
 	onClose,
 	showUsd = true,
+	onCorrect,
 }: {
 	expense: Expense | null;
 	categories: Category[];
@@ -40,6 +42,9 @@ export function ExpenseDetailDrawer({
 	onClose: () => void;
 	/** HQ views show USD + exchange rate; branch views (local only) hide them. */
 	showUsd?: boolean;
+	/** Branch views pass this to open the correction form for a returned
+	 *  transaction straight from the receipt detail. */
+	onCorrect?: (expense: Expense) => void;
 }) {
 	const { user } = useAuth();
 	const branch = expense
@@ -57,6 +62,14 @@ export function ExpenseDetailDrawer({
 		expense.reviewStatus !== "ok" &&
 		expense.reviewStatus !== "cancelled" &&
 		expense.reviewStatus !== "correct_modification";
+
+	// The branch's own correction box: HQ's reason plus the resubmit action, so a
+	// returned transaction can be fixed without going back to the list.
+	const showCorrect =
+		user?.role === "branch_user" &&
+		expense != null &&
+		expense.reviewStatus === "modify_requested" &&
+		onCorrect != null;
 
 	// While HQ reviews, the decision panel rides alongside the drawer (to its
 	// left) rather than inside it — full width for the comparison, and the
@@ -89,6 +102,32 @@ export function ExpenseDetailDrawer({
 								: formatMoney(expense.localAmount, expense.localCurrency)}
 						</Badge>
 					</div>
+
+					{showCorrect && (
+						<div className="rounded-xl border border-[#c9d8f5] bg-[#f4f7fe] p-4">
+							<p className="text-sm font-semibold text-[#2f5bb7]">
+								HQ returned this for correction
+							</p>
+							{expense.reviewNote && (
+								<p className="mt-1 text-sm text-[#2f5bb7]">
+									<span className="font-semibold">Note:</span>{" "}
+									{expense.reviewNote}
+								</p>
+							)}
+							<p className="mt-1 text-sm text-[var(--color-muted)]">
+								Check the receipt above, then update the details to match it.
+							</p>
+							<Button
+								className="mt-3"
+								onClick={() => {
+									onCorrect?.(expense);
+									onClose();
+								}}
+							>
+								<PencilLine size={15} /> Correct &amp; resubmit
+							</Button>
+						</div>
+					)}
 
 					<div className="space-y-5">
 						<ReceiptPreview

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CategoryDonutCard } from "#/components/dashboard/CategoryDonutCard";
 import { FundOverview } from "#/components/dashboard/FundOverview";
 import { RecentExpenses } from "#/components/dashboard/RecentExpenses";
+import { EditExpenseModal } from "#/components/receipts/EditExpenseModal";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { Button, EmptyState, SectionCard } from "#/components/ui/primitives";
 import { StatCard } from "#/components/ui/StatCard";
@@ -22,6 +23,7 @@ import type { Branch, Expense } from "#/lib/types";
 export function BranchDashboard({ branch }: { branch: Branch }) {
 	const { data } = useStore();
 	const [selected, setSelected] = useState<Expense | null>(null);
+	const [editing, setEditing] = useState<Expense | null>(null);
 
 	const fin = branchFinancials(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
@@ -142,7 +144,9 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 				users={data.users}
 				onClose={() => setSelected(null)}
 				showUsd={false}
+				onCorrect={setEditing}
 			/>
+			<EditExpenseModal expense={editing} onClose={() => setEditing(null)} />
 		</div>
 	);
 }
