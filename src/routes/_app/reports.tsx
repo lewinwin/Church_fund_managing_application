@@ -18,6 +18,7 @@ import {
 	globalTotals,
 	primaryCategories,
 } from "#/lib/calc";
+import { usdToLocal } from "#/lib/currency/exchangeRate";
 import { type CsvRow, downloadCsv, printReport } from "#/lib/export";
 import {
 	formatDate,
@@ -73,6 +74,21 @@ function ReportsPage() {
 
 	const branchName = (id: string) =>
 		data.branches.find((b) => b.id === id)?.name ?? id;
+
+	// When the report is scoped to a single branch, the summary tiles show that
+	// branch's local currency; across "all branches" (HQ) they stay in USD since
+	// the currencies differ.
+	const selectedBranch =
+		branchId === "all"
+			? null
+			: (data.branches.find((b) => b.id === branchId) ?? null);
+	const statMoney = (usd: number) =>
+		selectedBranch
+			? formatMoney(
+					usdToLocal(usd, selectedBranch.exchangeRateToUsd),
+					selectedBranch.localCurrency,
+				)
+			: formatUsd(usd);
 
 	const showLocal = currencyView !== "usd";
 	const showUsd = currencyView !== "local";
@@ -154,9 +170,9 @@ function ReportsPage() {
 			"Petty Cash Expense Report",
 			`${scopeLabel} · ${from || "start"} → ${to || "today"}`,
 			[
-				{ label: "Total released", value: formatUsd(scope.released) },
-				{ label: "Spent (filtered)", value: formatUsd(spentFiltered) },
-				{ label: "Remaining", value: formatUsd(scope.remaining) },
+				{ label: "Total released", value: statMoney(scope.released) },
+				{ label: "Spent (filtered)", value: statMoney(spentFiltered) },
+				{ label: "Remaining", value: statMoney(scope.remaining) },
 				{ label: "Receipts", value: String(filtered.length) },
 			],
 			{
@@ -237,15 +253,15 @@ function ReportsPage() {
 			</SectionCard>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<StatCard label="Total released" value={formatUsd(scope.released)} />
+				<StatCard label="Total released" value={statMoney(scope.released)} />
 				<StatCard
 					label="Spent (filtered)"
-					value={formatUsd(spentFiltered)}
+					value={statMoney(spentFiltered)}
 					accent="red"
 				/>
 				<StatCard
 					label="Remaining"
-					value={formatUsd(scope.remaining)}
+					value={statMoney(scope.remaining)}
 					accent="lime"
 				/>
 				<StatCard label="Receipts" value={String(filtered.length)} />
