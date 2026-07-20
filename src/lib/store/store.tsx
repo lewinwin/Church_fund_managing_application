@@ -108,7 +108,6 @@ interface StoreContextValue {
 		currentPassword: string,
 		newPassword: string,
 	) => Promise<{ ok: boolean; error?: string }>;
-	resetDemo: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
@@ -315,10 +314,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 		[],
 	);
 
-	const resetDemo = useCallback<StoreContextValue["resetDemo"]>(async () => {
-		await refresh();
-	}, [refresh]);
-
 	const value = useMemo<StoreContextValue>(
 		() => ({
 			data,
@@ -340,7 +335,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			addBranch,
 			addToPlanTarget,
 			changePassword,
-			resetDemo,
 		}),
 		[
 			data,
@@ -362,7 +356,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			addBranch,
 			addToPlanTarget,
 			changePassword,
-			resetDemo,
 		],
 	);
 

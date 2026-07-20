@@ -1,10 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { LogOut, RotateCcw } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { Modal } from "#/components/ui/Overlay";
 import {
 	Avatar,
-	Badge,
 	Button,
 	Field,
 	Input,
@@ -109,9 +107,8 @@ function ChangePasswordCard() {
 
 function SettingsPage() {
 	const { user, logout } = useAuth();
-	const { data, resetDemo } = useStore();
+	const { data } = useStore();
 	const navigate = useNavigate();
-	const [confirmReset, setConfirmReset] = useState(false);
 
 	if (!user) return null;
 	const branch = branchById(data.branches, user.branchId);
@@ -119,11 +116,6 @@ function SettingsPage() {
 	function handleLogout() {
 		logout();
 		navigate({ to: "/login" });
-	}
-
-	function handleReset() {
-		resetDemo();
-		setConfirmReset(false);
 	}
 
 	return (
@@ -174,48 +166,6 @@ function SettingsPage() {
 			)}
 
 			<ChangePasswordCard />
-
-			<SectionCard title="Demo data" className="lg:col-span-2">
-				<div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-					<div>
-						<p className="text-sm font-medium">Reset to seed data</p>
-						<p className="text-sm text-[var(--color-muted)]">
-							Restores the original demo branches, expenses and funding plans.
-							Anything you added in this browser will be cleared.
-						</p>
-					</div>
-					<Button variant="ghost" onClick={() => setConfirmReset(true)}>
-						<RotateCcw size={15} /> Reset demo data
-					</Button>
-				</div>
-				<div className="mt-3">
-					<Badge tone="amber">
-						Prototype · all data lives in your browser (localStorage)
-					</Badge>
-				</div>
-			</SectionCard>
-
-			<Modal
-				open={confirmReset}
-				onClose={() => setConfirmReset(false)}
-				title="Reset demo data?"
-				footer={
-					<>
-						<Button variant="ghost" onClick={() => setConfirmReset(false)}>
-							Cancel
-						</Button>
-						<Button variant="danger" onClick={handleReset}>
-							Reset everything
-						</Button>
-					</>
-				}
-			>
-				<p className="text-sm text-[var(--color-muted)]">
-					This restores the seed dataset and removes any expenses, fund
-					releases, categories or users you created in this browser. This can't
-					be undone.
-				</p>
-			</Modal>
 		</div>
 	);
 }

@@ -51,13 +51,6 @@ export function Sidebar({
 					);
 				})}
 			</nav>
-
-			<div className="m-3 rounded-2xl bg-[var(--color-forest-800)] p-4 text-white">
-				<p className="text-sm font-semibold">Week 1 Prototype</p>
-				<p className="mt-1 text-xs text-[var(--color-forest-100)]">
-					Running on mock data in your browser. Reset anytime from Settings.
-				</p>
-			</div>
 		</aside>
 	);
 }
