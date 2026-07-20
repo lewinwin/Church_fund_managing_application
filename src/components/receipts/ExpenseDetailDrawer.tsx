@@ -58,15 +58,23 @@ export function ExpenseDetailDrawer({
 		expense.reviewStatus !== "cancelled" &&
 		expense.reviewStatus !== "correct_modification";
 
+	// While HQ reviews, the decision panel rides alongside the drawer (to its
+	// left) rather than inside it — full width for the comparison, and the
+	// receipt stays visible next to it.
+	const reviewPanel = expense ? (
+		<ReviewPanel
+			expense={expense}
+			categories={categories}
+			currency={expense.localCurrency}
+		/>
+	) : null;
+
 	return (
-		// When HQ is reviewing, the drawer widens and the receipt sits beside the
-		// details so the decision panel below gets the full width (rather than
-		// being squeezed tall and narrow).
 		<Drawer
 			open={!!expense}
 			onClose={onClose}
 			title="Receipt detail"
-			width={showReview ? "max-w-3xl" : "max-w-md"}
+			aside={showReview ? reviewPanel : undefined}
 		>
 			{expense && (
 				<div className="space-y-5">
@@ -82,9 +90,7 @@ export function ExpenseDetailDrawer({
 						</Badge>
 					</div>
 
-					<div
-						className={showReview ? "grid gap-5 lg:grid-cols-2" : "space-y-5"}
-					>
+					<div className="space-y-5">
 						<ReceiptPreview
 							dataUrl={expense.receiptDataUrl}
 							fileName={expense.receiptFileName}
@@ -123,13 +129,11 @@ export function ExpenseDetailDrawer({
 						</div>
 					</div>
 
+					{/* Below lg there's no room for the side panel, so the review
+					    controls fall back to inside the drawer. */}
 					{showReview && (
-						<div className="rounded-xl border border-[var(--color-line)] p-4">
-							<ReviewPanel
-								expense={expense}
-								categories={categories}
-								currency={expense.localCurrency}
-							/>
+						<div className="rounded-xl border border-[var(--color-line)] p-4 lg:hidden">
+							{reviewPanel}
 						</div>
 					)}
 
