@@ -165,6 +165,8 @@ function LoginPage() {
 
 						<Field label="Password">
 							<div className="relative">
+								{/* pr-11 keeps the value clear of the toggle — the field's own
+								    padding is only 14px, so a long password ran under the icon. */}
 								<Input
 									type={showPassword ? "text" : "password"}
 									autoComplete="current-password"
@@ -172,12 +174,19 @@ function LoginPage() {
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
 									required
+									className="pr-11"
 								/>
 								<button
 									type="button"
-									onClick={() => setShowPassword((v) => !v)}
-									className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]"
+									// The Field renders a <label>, so a click here would also
+									// re-focus the input; stop it bubbling.
+									onClick={(e) => {
+										e.preventDefault();
+										setShowPassword((v) => !v);
+									}}
+									className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--color-muted)] transition-colors hover:bg-[var(--color-forest-50)] hover:text-[var(--color-forest-700)]"
 									aria-label={showPassword ? "Hide password" : "Show password"}
+									aria-pressed={showPassword}
 								>
 									{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
 								</button>
