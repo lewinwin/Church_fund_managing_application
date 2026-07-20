@@ -1,4 +1,4 @@
-# Mockups — 611 Petty Cash (Week 1 Prototype)
+# Mockups — 611 Ministry Funding (Week 1 Prototype)
 
 > These wireframes describe the screens implemented in the W1 prototype. The
 > live prototype is the source of truth; run `bun run dev` and log in with the
@@ -14,7 +14,7 @@ Split screen. Left = forest-green brand panel (logo, tagline, stats). Right = fo
 
 ```
 ┌───────────────────────────┬──────────────────────────────┐
-│  ● 611 Petty Cash         │   Welcome back                │
+│  ● 611 Ministry Funding         │   Welcome back                │
 │                           │   Log in to your account      │
 │  Every branch. Every      │                               │
 │  receipt. One clear       │   Email  [________________]   │

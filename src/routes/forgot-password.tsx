@@ -24,7 +24,7 @@ function ForgotPasswordPage() {
 					<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-forest-800)] text-[var(--color-lime-400)]">
 						<Coins size={20} />
 					</span>
-					<span className="font-bold">611 Petty Cash</span>
+					<span className="font-bold">611 Ministry Funding</span>
 				</div>
 
 				{sent ? (

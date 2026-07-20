@@ -1,4 +1,4 @@
-# ARCHITECTURE — 611 Petty Cash
+# ARCHITECTURE — 611 Ministry Funding
 
 > **Purpose:** A precise map of the codebase for fast orientation mid-task (human or AI). Where each folder/file lives, what it's responsible for, and how one request travels end-to-end.
 > **Audience:** future-me / AI assistant reference — dense and complete, not a tutorial.

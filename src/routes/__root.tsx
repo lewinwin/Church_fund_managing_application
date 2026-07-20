@@ -12,7 +12,7 @@ export const Route = createRootRoute({
 				name: "viewport",
 				content: "width=device-width, initial-scale=1",
 			},
-			{ title: "611 Petty Cash Management" },
+			{ title: "611 Ministry Funding" },
 		],
 		links: [{ rel: "stylesheet", href: appCss }],
 	}),

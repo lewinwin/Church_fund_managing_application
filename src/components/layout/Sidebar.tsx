@@ -23,7 +23,9 @@ export function Sidebar({
 					<Coins size={20} />
 				</span>
 				<div className="leading-tight">
-					<p className="text-sm font-bold tracking-tight">611 Petty Cash</p>
+					<p className="text-sm font-bold tracking-tight">
+						611 Ministry Funding
+					</p>
 					<p className="text-[11px] text-[var(--color-muted)]">{roleLabel}</p>
 				</div>
 			</div>

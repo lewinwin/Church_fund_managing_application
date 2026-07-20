@@ -160,14 +160,14 @@ function ReportsPage() {
 	function handleCsv() {
 		const scopeLabel =
 			branchId === "all" ? "all-branches" : branchName(branchId);
-		downloadCsv(`petty-cash-report-${scopeLabel}`, buildCsvRows());
+		downloadCsv(`ministry-funding-report-${scopeLabel}`, buildCsvRows());
 	}
 
 	function handlePdf() {
 		const scopeLabel =
 			branchId === "all" ? "All branches" : branchName(branchId);
 		printReport(
-			"Petty Cash Expense Report",
+			"611 Ministry Funding — Expense Report",
 			`${scopeLabel} · ${from || "start"} → ${to || "today"}`,
 			[
 				{ label: "Total released", value: statMoney(scope.released) },

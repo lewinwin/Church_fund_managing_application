@@ -38,7 +38,7 @@ function pageTitle(path: string, role: Role, branchName?: string): string {
 	if (path === "/settings") return "Settings";
 	if (path === "/submit-receipt") return "Upload Receipt";
 	if (path === "/expenses") return "My Receipts";
-	return "611 Petty Cash";
+	return "611 Ministry Funding";
 }
 
 function FullScreenLoader() {

@@ -1,4 +1,4 @@
-# PRD — 611 Petty Cash Management System
+# PRD — 611 Ministry Funding
 
 > Product requirements for v1. Authority order: [`../../context.md`](../../context.md) > [`../README.md`](../README.md) > this doc.
 > Week 1 status: UI-first prototype on mock data (localStorage). No real auth/DB/OCR/FX yet.

@@ -1,4 +1,4 @@
-# 611-petty-cash
+# 611 Ministry Funding
 
 > Internal expense tracking tool for church branches — receipt upload with OCR, multi-currency support, and staged funding oversight for headquarters.
 

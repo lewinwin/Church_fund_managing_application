@@ -92,7 +92,7 @@ function LoginPage() {
 					<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-lime-400)] text-[var(--color-forest-900)]">
 						<Coins size={22} />
 					</span>
-					<span className="text-lg font-bold">611 Petty Cash</span>
+					<span className="text-lg font-bold">611 Ministry Funding</span>
 				</div>
 
 				<div className="relative flex gap-6 text-white">
@@ -141,7 +141,7 @@ function LoginPage() {
 								<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-lime-400)] text-[var(--color-forest-900)]">
 									<Coins size={18} />
 								</span>
-								<span className="font-bold">611 Petty Cash</span>
+								<span className="font-bold">611 Ministry Funding</span>
 							</div>
 						</div>
 					</div>

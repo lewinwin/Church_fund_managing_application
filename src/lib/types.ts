@@ -1,4 +1,4 @@
-// Domain types for the 611 Petty Cash prototype.
+// Domain types for the 611 Ministry Funding prototype.
 // Mirrors the schema in context.md so the W2 DB migration reshapes nothing.
 
 export type Role = "hq_admin" | "branch_user";
