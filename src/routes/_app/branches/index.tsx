@@ -4,12 +4,20 @@ import { HqReviewCard } from "#/components/receipts/HqReviewCard";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import { EmptyState, ProgressBar, SectionCard } from "#/components/ui/primitives";
 import { branchById, branchFinancials } from "#/lib/calc";
-import { formatPercent, formatUsd } from "#/lib/format";
+import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatAmount, formatPercent } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
+import type { Branch } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/branches/")({
 	component: BranchesPage,
 });
+
+// Each branch's figures are shown in its OWN local currency (matching the branch
+// detail page), with no symbol — the currency code is shown under the branch name.
+function local(usd: number, branch: Branch): string {
+	return formatAmount(usdToLocal(usd, branch.exchangeRateToUsd), branch.localCurrency);
+}
 
 function BranchesPage() {
 	const { data } = useStore();
@@ -47,20 +55,22 @@ function BranchesPage() {
 			key: "released",
 			header: "Released",
 			align: "right",
-			render: (r) => formatUsd(r.fin.releasedUsd),
+			render: (r) => local(r.fin.releasedUsd, r.branch),
 		},
 		{
 			key: "spent",
 			header: "Spent",
 			align: "right",
-			render: (r) => formatUsd(r.fin.spentUsd),
+			render: (r) => local(r.fin.spentUsd, r.branch),
 		},
 		{
 			key: "remaining",
 			header: "Remaining",
 			align: "right",
 			render: (r) => (
-				<span className="font-semibold">{formatUsd(r.fin.remainingUsd)}</span>
+				<span className="font-semibold">
+					{local(r.fin.remainingUsd, r.branch)}
+				</span>
 			),
 		},
 		{
