@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PencilLine, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useState } from "react";
 import { FundOverview } from "#/components/dashboard/FundOverview";
-import { EditExpenseModal } from "#/components/receipts/EditExpenseModal";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { GroupedExpenseList } from "#/components/receipts/GroupedExpenseList";
 import { Button, SectionCard } from "#/components/ui/primitives";
@@ -11,10 +10,8 @@ import {
 	activePlanForBranch,
 	branchById,
 	branchFinancials,
-	categoryLabel,
 	expensesForBranch,
 } from "#/lib/calc";
-import { formatDate, formatMoney } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { Expense } from "#/lib/types";
 
@@ -28,16 +25,12 @@ function ExpensesPage() {
 	const { user } = useAuth();
 	const { data } = useStore();
 	const [selected, setSelected] = useState<Expense | null>(null);
-	const [editing, setEditing] = useState<Expense | null>(null);
 
 	const branch = branchById(data.branches, user?.branchId ?? null);
 	if (!branch) return null;
 
 	// Data isolation: only this branch's expenses are ever loaded.
 	const expenses = expensesForBranch(data, branch.id);
-	const returned = expenses.filter(
-		(e) => e.reviewStatus === "modify_requested",
-	);
 	const fin = branchFinancials(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
 	const cur = branch.localCurrency;
@@ -59,41 +52,6 @@ function ExpensesPage() {
 						: `All figures shown in ${cur} at the current exchange rate.`
 				}
 			/>
-
-			{returned.length > 0 && (
-				<SectionCard title={`Returned to correct (${returned.length})`}>
-					<div className="space-y-3">
-						{returned.map((e) => (
-							<div
-								key={e.id}
-								className="flex flex-col gap-3 rounded-xl border border-[#c9d8f5] bg-[#f4f7fe] p-4 sm:flex-row sm:items-center sm:justify-between"
-							>
-								<div className="min-w-0">
-									<p className="font-semibold">{e.description}</p>
-									<p className="mt-0.5 text-sm text-[var(--color-muted)]">
-										{categoryLabel(
-											data.categories,
-											e.categoryId,
-											e.otherSubcategoryId,
-										)}{" "}
-										· {formatMoney(e.localAmount, cur)} ·{" "}
-										{formatDate(e.expenseDate)}
-									</p>
-									{e.reviewNote && (
-										<p className="mt-1 text-sm text-[#2f5bb7]">
-											<span className="font-semibold">HQ note:</span>{" "}
-											{e.reviewNote}
-										</p>
-									)}
-								</div>
-								<Button className="shrink-0" onClick={() => setEditing(e)}>
-									<PencilLine size={15} /> Correct & resubmit
-								</Button>
-							</div>
-						))}
-					</div>
-				</SectionCard>
-			)}
 
 			<SectionCard
 				title={`${branch.name} receipts`}
@@ -126,7 +84,6 @@ function ExpensesPage() {
 				onClose={() => setSelected(null)}
 				showUsd={false}
 			/>
-			<EditExpenseModal expense={editing} onClose={() => setEditing(null)} />
 		</div>
 	);
 }
