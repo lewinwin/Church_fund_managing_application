@@ -9,7 +9,8 @@ import {
 } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { activePlanForBranch } from "#/lib/calc";
-import { todayIso } from "#/lib/format";
+import { toUsd } from "#/lib/currency/exchangeRate";
+import { formatUsd, todayIso } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 
 // Record a manual fund release (a "top-up"). Increases the branch's released
@@ -34,6 +35,12 @@ export function FundReleaseModal({
 		defaultBranchId ?? branchesWithPlan[0]?.id ?? "",
 	);
 	const [amount, setAmount] = useState("");
+
+	// Amount is entered in the selected branch's local currency, then converted
+	// to the USD figure the backend stores.
+	const selectedBranch = data.branches.find((b) => b.id === branchId);
+	const currency = selectedBranch?.localCurrency ?? "USD";
+	const rate = selectedBranch?.exchangeRateToUsd ?? 1;
 	const [releaseDate, setReleaseDate] = useState(todayIso());
 	const [note, setNote] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -53,7 +60,7 @@ export function FundReleaseModal({
 			return;
 		}
 		if (!Number.isFinite(amt) || amt <= 0) {
-			setError("Enter a valid USD amount.");
+			setError(`Enter a valid ${currency} amount.`);
 			return;
 		}
 		const plan = activePlanForBranch(data, branchId);
@@ -64,7 +71,7 @@ export function FundReleaseModal({
 		addFundRelease({
 			fundingPlanId: plan.id,
 			branchId,
-			amountUsd: Math.round(amt * 100) / 100,
+			amountUsd: toUsd(amt, rate),
 			releaseDate,
 			note: note.trim() || null,
 			createdByUserId: user?.id ?? "u-hq",
@@ -109,7 +116,15 @@ export function FundReleaseModal({
 						))}
 					</Select>
 				</Field>
-				<Field label="Amount (USD)" required>
+				<Field
+					label={`Amount (${currency})`}
+					required
+					hint={
+						Number(amount) > 0
+							? `≈ ${formatUsd(toUsd(Number(amount), rate))}`
+							: undefined
+					}
+				>
 					<Input
 						type="number"
 						min="0"

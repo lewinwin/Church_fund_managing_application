@@ -16,7 +16,7 @@ import {
 } from "#/components/ui/primitives";
 import { activePlanForBranch, branchFinancials } from "#/lib/calc";
 import { toUsd, usdToLocal } from "#/lib/currency/exchangeRate";
-import { formatAmount, formatMoney, formatPercent } from "#/lib/format";
+import { formatAmount, formatMoney, formatPercent, formatUsd } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 
@@ -314,6 +314,12 @@ function CreatePlanModal({
 	const [status, setStatus] = useState<FundingPlanStatus>("active");
 	const [error, setError] = useState<string | null>(null);
 
+	// Target is entered in the selected branch's local currency, then converted
+	// to the USD figure the backend stores.
+	const selectedBranch = data.branches.find((b) => b.id === branchId);
+	const currency = selectedBranch?.localCurrency ?? "USD";
+	const rate = selectedBranch?.exchangeRateToUsd ?? 1;
+
 	function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		const amt = Number(target);
@@ -322,7 +328,7 @@ function CreatePlanModal({
 			return setError("Enter a valid target amount.");
 		onCreate({
 			branchId,
-			totalTargetUsd: Math.round(amt * 100) / 100,
+			totalTargetUsd: toUsd(amt, rate),
 			description: description.trim() || "Branch funding plan",
 			status,
 		});
@@ -364,7 +370,15 @@ function CreatePlanModal({
 						))}
 					</Select>
 				</Field>
-				<Field label="Total target (USD)" required>
+				<Field
+					label={`Total target (${currency})`}
+					required
+					hint={
+						Number(target) > 0
+							? `≈ ${formatUsd(toUsd(Number(target), rate))}`
+							: undefined
+					}
+				>
 					<Input
 						type="number"
 						min="0"
