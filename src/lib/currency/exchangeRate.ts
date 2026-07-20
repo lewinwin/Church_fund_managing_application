@@ -2,7 +2,7 @@
 // Fixed rates only. Real provider (Open Exchange Rates / Fixer) lands W3.
 // Interface matches context.md's getExchangeRateToUsd contract so the UI
 // never changes when the real provider is wired in.
-import type { CurrencyCode } from "#/lib/types";
+import { type CurrencyCode, KNOWN_CURRENCIES } from "#/lib/types";
 
 /** local currency -> USD multiplier. 1 local unit = RATE usd. */
 const FIXED_RATES: Record<CurrencyCode, number> = {
@@ -22,6 +22,49 @@ export interface ExchangeRateResult {
 /** Synchronous helper for calculations that need the raw multiplier. */
 export function rateToUsd(currency: CurrencyCode): number {
 	return FIXED_RATES[currency] ?? 1;
+}
+
+/** Minimal shape needed from a branch to resolve currencies/rates. */
+interface BranchRate {
+	localCurrency: CurrencyCode;
+	exchangeRateToUsd: number;
+}
+
+/**
+ * Every currency the system knows about: the caller's own branch first, then any
+ * other branch's currency, then the built-ins. Branches created at runtime (VND,
+ * THB, …) therefore appear everywhere, not just in their own branch.
+ */
+export function availableCurrencies(
+	ownCurrency: CurrencyCode,
+	branches: BranchRate[],
+): CurrencyCode[] {
+	const seen = new Set<CurrencyCode>([ownCurrency]);
+	const out: CurrencyCode[] = [ownCurrency];
+	for (const c of [
+		...branches.map((b) => b.localCurrency),
+		...KNOWN_CURRENCIES,
+	]) {
+		if (!seen.has(c)) {
+			seen.add(c);
+			out.push(c);
+		}
+	}
+	return out;
+}
+
+/**
+ * The rate to use for an amount entered in `currency`. Prefers the branch that
+ * actually uses that currency (HQ set its rate), falling back to the built-in
+ * fixed table. Without this a runtime currency would silently rate at 1.0.
+ */
+export function rateForCurrency(
+	currency: CurrencyCode,
+	branches: BranchRate[],
+): number {
+	const owner = branches.find((b) => b.localCurrency === currency);
+	if (owner && owner.exchangeRateToUsd > 0) return owner.exchangeRateToUsd;
+	return rateToUsd(currency);
 }
 
 /**

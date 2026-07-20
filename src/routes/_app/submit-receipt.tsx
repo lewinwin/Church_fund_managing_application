@@ -12,24 +12,18 @@ import {
 } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById, primaryCategories, subCategories } from "#/lib/calc";
-import { rateToUsd, toUsd } from "#/lib/currency/exchangeRate";
+import {
+	availableCurrencies,
+	rateForCurrency,
+	toUsd,
+} from "#/lib/currency/exchangeRate";
 import { formatMoney, todayIso } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
-import { type CurrencyCode, KNOWN_CURRENCIES } from "#/lib/types";
+import type { CurrencyCode } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/submit-receipt")({
 	component: SubmitReceiptPage,
 });
-
-// The branch's own currency always comes first, then the built-ins. Derived from
-// the branch (not a fixed list) so a branch created with a new currency — VND,
-// THB, … — can actually select it.
-function currencyOptions(branchCurrency: CurrencyCode): CurrencyCode[] {
-	return [
-		branchCurrency,
-		...KNOWN_CURRENCIES.filter((c) => c !== branchCurrency),
-	];
-}
 
 function fileToDataUrl(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -88,12 +82,15 @@ function SubmitReceiptPage() {
 		if (!categoryId) return setError("Select a category.");
 		if (requiresSub && !subId)
 			return setError('A sub-category is required when "Other" is selected.');
-		if (!dataUrl) return setError("Upload the receipt image before submitting.");
+		if (!dataUrl)
+			return setError("Upload the receipt image before submitting.");
 
+		// Own currency uses the branch's rate; another branch's currency uses that
+		// branch's rate (never a silent 1.0).
 		const rate =
 			currency === branch.localCurrency
 				? branch.exchangeRateToUsd
-				: rateToUsd(currency);
+				: rateForCurrency(currency, data.branches);
 
 		setSubmitting(true);
 		try {
@@ -180,7 +177,9 @@ function SubmitReceiptPage() {
 					<label className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-forest-200)] bg-[var(--color-forest-50)] px-6 py-10 text-center transition-colors hover:border-[var(--color-forest-400)]">
 						<Upload size={26} className="text-[var(--color-forest-500)]" />
 						<span className="text-sm font-medium text-[var(--color-forest-800)]">
-							{fileName ? "Choose a different file" : "Click to upload a receipt"}
+							{fileName
+								? "Choose a different file"
+								: "Click to upload a receipt"}
 						</span>
 						<span className="text-xs text-[var(--color-muted)]">
 							Required — kept with the transaction for verification
@@ -250,12 +249,14 @@ function SubmitReceiptPage() {
 								value={currency}
 								onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
 							>
-								{currencyOptions(branch.localCurrency).map((c) => (
-									<option key={c} value={c}>
-										{c}
-										{c === branch.localCurrency ? " (branch)" : ""}
-									</option>
-								))}
+								{availableCurrencies(branch.localCurrency, data.branches).map(
+									(c) => (
+										<option key={c} value={c}>
+											{c}
+											{c === branch.localCurrency ? " (branch)" : ""}
+										</option>
+									),
+								)}
 							</Select>
 						</Field>
 					</div>
