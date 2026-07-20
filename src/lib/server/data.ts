@@ -147,6 +147,15 @@ export async function getBootstrapData(ctx: AuthCtx): Promise<AppData> {
 	};
 }
 
+/** How many branches exist. Deliberately unauthenticated — the login page shows
+ *  it before anyone signs in. Returns a count only, never any branch data. */
+export async function getBranchCount(): Promise<number> {
+	const [row] = await db
+		.select({ c: sql<number>`count(*)::int` })
+		.from(t.branches);
+	return row?.c ?? 0;
+}
+
 // ---------------------------------------------------------------------------
 // Mutations — branchId/submitter derived from ctx, never trusted from client
 // ---------------------------------------------------------------------------
@@ -214,7 +223,8 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 	}
 
 	const cats = await db.select().from(t.expenseCategories);
-	const chosenCategory = cats.find((c) => c.id === exp.categoryId)?.name ?? "Unknown";
+	const chosenCategory =
+		cats.find((c) => c.id === exp.categoryId)?.name ?? "Unknown";
 	const categoryNames = cats
 		.filter((c) => c.parentId === null && c.active)
 		.map((c) => c.name);
@@ -330,7 +340,8 @@ export async function updateExpenseFields(
 	if (!canBranchEdit(exp.reviewStatus as ReviewStatus)) {
 		throw new Error("Only a returned (modify_requested) expense can be edited");
 	}
-	if (!(input.localAmount > 0)) throw new Error("Amount must be greater than 0");
+	if (!(input.localAmount > 0))
+		throw new Error("Amount must be greater than 0");
 	await db
 		.update(t.expenses)
 		.set({

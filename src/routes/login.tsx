@@ -3,6 +3,7 @@ import { Coins, Eye, EyeOff } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Button, Field, Input } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
+import { branchCountFn } from "#/lib/server/fns";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -21,11 +22,26 @@ function LoginPage() {
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [branchCount, setBranchCount] = useState<number | null>(null);
 
 	// Already signed in → skip the form.
 	useEffect(() => {
 		if (ready && user) navigate({ to: "/dashboard" });
 	}, [ready, user, navigate]);
+
+	// Real branch count for the brand panel. Shows "—" until it lands, and stays
+	// "—" if it fails — never a stale hardcoded number.
+	useEffect(() => {
+		let cancelled = false;
+		branchCountFn()
+			.then((n) => {
+				if (!cancelled) setBranchCount(n);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
@@ -77,6 +93,25 @@ function LoginPage() {
 						<Coins size={22} />
 					</span>
 					<span className="text-lg font-bold">611 Petty Cash</span>
+				</div>
+
+				<div className="relative flex gap-6 text-white">
+					<div>
+						<p className="text-2xl font-bold text-[var(--color-lime-300)]">
+							{branchCount ?? "—"}
+						</p>
+						<p className="text-xs text-[var(--color-forest-100)]">
+							{branchCount === 1 ? "Branch" : "Branches"}
+						</p>
+					</div>
+					<div>
+						<p className="text-2xl font-bold text-[var(--color-lime-300)]">
+							OCR
+						</p>
+						<p className="text-xs text-[var(--color-forest-100)]">
+							Receipt check
+						</p>
+					</div>
 				</div>
 			</div>
 

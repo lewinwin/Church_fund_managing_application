@@ -56,19 +56,21 @@ export const signInFn = createServerFn({ method: "POST" })
 		}
 	});
 
-export const signOutFn = createServerFn({ method: "POST" }).handler(async () => {
-	try {
-		const { headers } = await auth.api.signOut({
-			headers: getRequest().headers,
-			returnHeaders: true,
-		});
-		const cookie = headers.get("set-cookie");
-		if (cookie) setResponseHeader("set-cookie", cookie);
-	} catch {
-		// already signed out — ignore
-	}
-	return { ok: true as const };
-});
+export const signOutFn = createServerFn({ method: "POST" }).handler(
+	async () => {
+		try {
+			const { headers } = await auth.api.signOut({
+				headers: getRequest().headers,
+				returnHeaders: true,
+			});
+			const cookie = headers.get("set-cookie");
+			if (cookie) setResponseHeader("set-cookie", cookie);
+		} catch {
+			// already signed out — ignore
+		}
+		return { ok: true as const };
+	},
+);
 
 // ---------------------------------------------------------------------------
 // Data
@@ -80,6 +82,12 @@ export const bootstrapFn = createServerFn({ method: "GET" }).handler(
 		if (!ctx) return null;
 		return data.getBootstrapData(ctx);
 	},
+);
+
+// Public on purpose: the login page shows the branch count before sign-in.
+// Returns a number only — no branch names or any other data.
+export const branchCountFn = createServerFn({ method: "GET" }).handler(
+	async () => data.getBranchCount(),
 );
 
 // Receipt OCR (Gemini 2.5 Flash). Runs server-side so the API key stays secret.
@@ -248,7 +256,10 @@ export const updateUserFn = createServerFn({ method: "POST" })
 	.handler(async ({ data: input }) => {
 		const ctx = await requireAuthCtx();
 		if (ctx.role !== "hq_admin") throw new Error("HQ Admin only");
-		await db.update(userTable).set(input.patch).where(eq(userTable.id, input.id));
+		await db
+			.update(userTable)
+			.set(input.patch)
+			.where(eq(userTable.id, input.id));
 		return { ok: true as const };
 	});
 
