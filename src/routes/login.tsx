@@ -78,33 +78,6 @@ function LoginPage() {
 					</span>
 					<span className="text-lg font-bold">611 Petty Cash</span>
 				</div>
-
-				<div className="relative max-w-md text-white">
-					<h2 className="text-3xl font-bold leading-tight">
-						Every branch. Every receipt.
-						<br />
-						One clear view in USD.
-					</h2>
-					<p className="mt-4 text-[var(--color-forest-100)]">
-						Upload receipts, track fund balances in local currency, and give HQ
-						real-time oversight across all church branches.
-					</p>
-				</div>
-
-				<div className="relative flex gap-6 text-white">
-					{[
-						["4", "Branches"],
-						["USD", "HQ view"],
-						["OCR", "Assisted entry"],
-					].map(([big, small]) => (
-						<div key={small}>
-							<p className="text-2xl font-bold text-[var(--color-lime-300)]">
-								{big}
-							</p>
-							<p className="text-xs text-[var(--color-forest-100)]">{small}</p>
-						</div>
-					))}
-				</div>
 			</div>
 
 			{/* Form panel */}
