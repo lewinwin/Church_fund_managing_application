@@ -125,7 +125,6 @@ function ExpensesPage() {
 				users={data.users}
 				onClose={() => setSelected(null)}
 				showUsd={false}
-				onCorrect={setEditing}
 			/>
 			<EditExpenseModal expense={editing} onClose={() => setEditing(null)} />
 		</div>

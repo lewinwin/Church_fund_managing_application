@@ -1,9 +1,19 @@
-import { AlertTriangle, ChevronDown, ChevronRight, Receipt } from "lucide-react";
+import {
+	AlertTriangle,
+	ChevronDown,
+	ChevronRight,
+	Receipt,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState, Select } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
 import { formatAmount } from "#/lib/format";
-import type { Category, CurrencyCode, Expense, ReviewStatus } from "#/lib/types";
+import type {
+	Category,
+	CurrencyCode,
+	Expense,
+	ReviewStatus,
+} from "#/lib/types";
 import { ReviewBadge } from "./ReviewBadge";
 
 // Unresolved transactions someone still has to act on. Used to mark the month
@@ -179,7 +189,9 @@ export function GroupedExpenseList({
 													</span>
 													<span
 														className={`shrink-0 text-sm font-medium text-[var(--color-negative)] ${
-															e.reviewStatus === "cancelled" ? "line-through opacity-60" : ""
+															e.reviewStatus === "cancelled"
+																? "line-through opacity-60"
+																: ""
 														}`}
 													>
 														−{fmt(showUsd ? e.usdAmount : e.localAmount)}

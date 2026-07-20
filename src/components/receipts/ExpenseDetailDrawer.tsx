@@ -1,7 +1,8 @@
 import { PencilLine } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Drawer } from "#/components/ui/Overlay";
 import { Badge, Button } from "#/components/ui/primitives";
+import { EditExpenseForm } from "./EditExpenseForm";
 import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel } from "#/lib/calc";
 import {
@@ -33,7 +34,6 @@ export function ExpenseDetailDrawer({
 	users,
 	onClose,
 	showUsd = true,
-	onCorrect,
 }: {
 	expense: Expense | null;
 	categories: Category[];
@@ -42,11 +42,15 @@ export function ExpenseDetailDrawer({
 	onClose: () => void;
 	/** HQ views show USD + exchange rate; branch views (local only) hide them. */
 	showUsd?: boolean;
-	/** Branch views pass this to open the correction form for a returned
-	 *  transaction straight from the receipt detail. */
-	onCorrect?: (expense: Expense) => void;
 }) {
 	const { user } = useAuth();
+	// Correcting happens beside the drawer, so the receipt stays on screen.
+	const [correcting, setCorrecting] = useState(false);
+
+	// Reset the form whenever a different receipt is opened/closed.
+	useEffect(() => {
+		setCorrecting(false);
+	}, [expense]);
 	const branch = expense
 		? branches.find((b) => b.id === expense.branchId)
 		: undefined;
@@ -68,8 +72,7 @@ export function ExpenseDetailDrawer({
 	const showCorrect =
 		user?.role === "branch_user" &&
 		expense != null &&
-		expense.reviewStatus === "modify_requested" &&
-		onCorrect != null;
+		expense.reviewStatus === "modify_requested";
 
 	// While HQ reviews, the decision panel rides alongside the drawer (to its
 	// left) rather than inside it — full width for the comparison, and the
@@ -82,12 +85,29 @@ export function ExpenseDetailDrawer({
 		/>
 	) : null;
 
+	// The branch's correction form uses the same side slot, so the receipt stays
+	// visible while the details are being fixed.
+	const correctionForm =
+		expense && correcting ? (
+			<div>
+				<h4 className="mb-3 text-base font-semibold">Correct &amp; resubmit</h4>
+				<EditExpenseForm
+					expense={expense}
+					onDone={() => {
+						setCorrecting(false);
+						onClose();
+					}}
+					onCancel={() => setCorrecting(false)}
+				/>
+			</div>
+		) : null;
+
 	return (
 		<Drawer
 			open={!!expense}
 			onClose={onClose}
 			title="Receipt detail"
-			aside={showReview ? reviewPanel : undefined}
+			aside={showReview ? reviewPanel : (correctionForm ?? undefined)}
 		>
 			{expense && (
 				<div className="space-y-5">
@@ -115,17 +135,21 @@ export function ExpenseDetailDrawer({
 								</p>
 							)}
 							<p className="mt-1 text-sm text-[var(--color-muted)]">
-								Check the receipt above, then update the details to match it.
+								Check the receipt below, then update the details to match it.
 							</p>
-							<Button
-								className="mt-3"
-								onClick={() => {
-									onCorrect?.(expense);
-									onClose();
-								}}
-							>
-								<PencilLine size={15} /> Correct &amp; resubmit
-							</Button>
+							{!correcting && (
+								<Button className="mt-3" onClick={() => setCorrecting(true)}>
+									<PencilLine size={15} /> Correct &amp; resubmit
+								</Button>
+							)}
+						</div>
+					)}
+
+					{/* Below lg there's no room beside the drawer, so the correction
+					    form falls back to inside it. */}
+					{correcting && (
+						<div className="rounded-xl border border-[var(--color-line)] p-4 lg:hidden">
+							{correctionForm}
 						</div>
 					)}
 

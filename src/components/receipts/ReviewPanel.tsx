@@ -120,7 +120,9 @@ export function ReviewPanel({
 						label="Amount"
 						entered={formatMoney(expense.localAmount, currency)}
 						read={
-							check.ocrAmount != null ? formatMoney(check.ocrAmount, currency) : "—"
+							check.ocrAmount != null
+								? formatMoney(check.ocrAmount, currency)
+								: "—"
 						}
 						ok={check.amountMatch}
 					/>
