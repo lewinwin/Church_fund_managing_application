@@ -2,15 +2,14 @@
 
 > **Purpose:** A precise map of the codebase for fast orientation mid-task (human or AI). Where each folder/file lives, what it's responsible for, and how one request travels end-to-end.
 > **Audience:** future-me / AI assistant reference — dense and complete, not a tutorial.
-> **Companion docs:** product spec in [`context.md`](../../context.md) · requirements in [`docs/PRD.md`](PRD.md) · screen sketches in [`docs/MOCKUPS.md`](MOCKUPS.md) · build history in [`WEEK1_PLAN.md`](../../WEEK1_PLAN.md) / [`WEEK2_PLAN.md`](../../WEEK2_PLAN.md) / [`WEEK3_PLAN.md`](../../WEEK3_PLAN.md).
-> **Last verified against source:** 2026-07-14 (Week 3: real OCR, receipt Storage, RLS → app-level branch gate).
-> **Two builds:** `backend-supabase-included` (Supabase Postgres + Storage bucket for images) and `Win-branch` (pure PostgreSQL, base64 images in the DB). This doc describes the shared architecture; the few build-specific parts are flagged.
+> **Last verified against source:** 2026-07-23.
+> **Two builds:** `main` / `Win-branch` (pure PostgreSQL, receipt images stored base64 in the DB) and `backend-supabase-included` (Supabase Postgres + a private Storage bucket for images). This doc describes the pure build; the few Supabase-only parts are flagged.
 
 ---
 
 ## 1. The one-paragraph model
 
-A **TanStack Start** app (React 19 + Nitro + Vite). File-based routes render React pages that read data through two providers — `AuthProvider` and `StoreProvider`. Those providers never touch the database directly; they call **server functions** (`createServerFn`), which run on the server, resolve the Better-Auth session, and query **PostgreSQL** via **Drizzle ORM**. Branch isolation is applied in **application code** by a pure, testable helper — `branchScope(ctx, col)` adds `WHERE branch_id = …` for branch users (nothing for HQ) — so the browser can never fetch another branch's rows. *(This replaced per-request Postgres RLS in Week 3, for testability + no `set_config` round-trip.)*
+A **TanStack Start** app (React 19 + Nitro + Vite). File-based routes render React pages that read data through two providers — `AuthProvider` and `StoreProvider`. Those providers never touch the database directly; they call **server functions** (`createServerFn`), which run on the server, resolve the Better-Auth session, and query **PostgreSQL** via **Drizzle ORM**. Branch isolation is applied in **application code** by a pure, testable helper — `branchScope(ctx, col)` adds `WHERE branch_id = …` for branch users (nothing for HQ) — so the browser can never fetch another branch's rows.
 
 ```
 Browser (React)                         Server (Nitro)                      Postgres
@@ -22,7 +21,7 @@ lib/auth/auth.tsx  ─┐
 lib/store/store.tsx ┘ call ──►  lib/server/fns.ts  (createServerFn)
                                      │  getAuthCtx()  ──► lib/auth/ctx.ts ──► lib/auth/server.ts (Better Auth)
                                      ▼
-                                lib/server/data.ts  (mappers + queries)
+                                lib/server/data.ts  (mappers + queries + mutations)
                                      │  .where(branchScope(ctx, table.branchId))
                                      ▼
                                 lib/server/scope.ts   branchScope() — HQ: no filter; branch: branch_id = theirs (pure, unit-tested)
@@ -38,40 +37,40 @@ lib/store/store.tsx ┘ call ──►  lib/server/fns.ts  (createServerFn)
 petty-cash/
 ├── src/
 │   ├── routes/          File-based routes (URLs). Pages + layout + guards.
-│   ├── components/       Presentational + composite UI, grouped by domain.
-│   ├── lib/              All non-UI logic: auth, db, server fns, calc, format, store.
-│   ├── data/             ⚠ W1 legacy seed JSON (now orphaned — see §7).
-│   ├── router.tsx        TanStack Router factory + type registration.
-│   ├── routeTree.gen.ts  GENERATED route tree (do not edit by hand).
-│   └── styles.css        Tailwind v4 entry + @theme tokens.
-├── scripts/             DB lifecycle: schema push target, seed, drop-rls, verify.
-├── docs/                PRD, mockups, and this file.
-└── <root configs>       package.json, drizzle.config.ts, vite.config.ts, biome.json, …
+│   ├── components/      Presentational + composite UI, grouped by domain.
+│   ├── lib/             All non-UI logic: auth, db, server fns, calc, ledger, review lifecycle, format.
+│   ├── data/            Seed JSON (source for scripts/seed.ts).
+│   ├── router.tsx       TanStack Router factory + type registration.
+│   ├── routeTree.gen.ts GENERATED route tree (do not edit by hand).
+│   └── styles.css       Tailwind entry + theme tokens.
+├── scripts/            DB lifecycle: seed, seed-users, drop-rls, verify.
+├── docs/               This file.
+└── <root configs>      package.json, drizzle.config.ts, vite.config.ts, biome.json, …
 ```
 
 ---
 
 ## 3. `src/routes/` — URLs, pages, guards
 
-File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout** route (wraps children, adds no URL segment). `$` marks a **dynamic param**.
+File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout** route; `$` marks a **dynamic param**.
 
 | File | URL | Responsibility |
 |---|---|---|
-| `__root.tsx` | — | Root document. Mounts providers: `<AuthProvider><StoreProvider>…`. Provider order matters — store depends on who's logged in. |
-| `index.tsx` | `/` | Redirects to `/dashboard` or `/login`. |
-| `login.tsx` | `/login` | Login form + demo-account quick-fill. Calls `useAuth().login` (async). |
-| `forgot-password.tsx` / `reset-password.tsx` | | UI-only screens (not wired to a backend). |
+| `__root.tsx` | — | Root document. Sets the browser title. Mounts providers: `<AuthProvider><StoreProvider>…`. Order matters — the store depends on who's logged in. |
+| `index.tsx` | `/` | Redirects: HQ → `/branches`, branch → `/dashboard`, signed-out → `/login`. |
+| `login.tsx` | `/login` | Login form + demo-account quick-fill. Brand panel shows a **live branch count** (`branchCountFn`, public). |
+| `forgot-password.tsx` / `reset-password.tsx` | | **UI-only mock — not wired to any backend.** There is no working self-service reset; the only real password change is in Settings. |
 | `_app.tsx` | — | Pathless layout → renders `AppShell` (sidebar + topbar + guards) around all authenticated pages. |
-| `_app/dashboard.tsx` | `/dashboard` | Role switch → `HqDashboard` or `BranchDashboard`. |
-| `_app/expenses.tsx` | `/expenses` | Branch user "My Receipts" — fund summary + grouped receipts. |
-| `_app/submit-receipt.tsx` | `/submit-receipt` | Upload → **Gemini OCR** (`ocrExtractFn`) pre-fills → editable form → `addExpense`. Branch only. |
-| `_app/reports.tsx` | `/reports` | Filters + CSV/PDF export. Data already branch-scoped server-side. |
-| `_app/settings.tsx` | `/settings` | Branch/account info. |
-| `_app/branches/index.tsx` | `/branches` | HQ: all-branches list. HQ only. |
-| `_app/branches/$branchId.tsx` | `/branches/:id` | HQ: one branch's detail. HQ only. |
-| `_app/funding-plans.tsx` | `/funding-plans` | HQ: plans + record fund release. HQ only. |
+| `_app/dashboard.tsx` | `/dashboard` | **Branch users only** → `BranchDashboard`. **HQ has no dashboard** — it redirects to `/branches`. |
+| `_app/submit-receipt.tsx` | `/submit-receipt` | Branch only. Manual entry + receipt upload → `addExpense` → fires background `verifyExpense`. **No OCR pre-fill** (OCR now audits *after* submit — see §7). |
+| `_app/expenses.tsx` | `/expenses` | Branch "My Receipts" — fund balance (local currency) + Month→Day receipt accordion. |
+| `_app/reports.tsx` | `/reports` | Filters + CSV/PDF export. Summary tiles in local currency when scoped to one branch. |
+| `_app/settings.tsx` | `/settings` | Account + branch info + **Change password** (Better Auth). |
+| `_app/branches/index.tsx` | `/branches` | HQ landing: all-branches list (local currency per row) + cross-branch **"Needs Check"** review queue. HQ only. |
+| `_app/branches/$branchId.tsx` | `/branches/:id` | HQ: one branch's detail (all figures in the branch's local currency). HQ only. |
+| `_app/funding-plans.tsx` | `/funding-plans` | HQ: plans + record fund release + add-to-target. Money entered/shown in local currency. HQ only. |
 | `_app/categories.tsx` | `/categories` | HQ: category management. HQ only. |
-| `_app/users.tsx` | `/users` | HQ: user/account management. HQ only. |
+| `_app/users.tsx` | `/users` | HQ: users + **create branch** (branch row + login account + currency + fixed rate). HQ only. |
 
 **Guards live in [`components/layout/AppShell.tsx`](../src/components/layout/AppShell.tsx), not in the routes.** `HQ_ONLY` / `BRANCH_ONLY` path lists + a `useEffect` redirect enforce role boundaries even against a hand-typed URL. The shell shows a full-screen loader until `auth.ready && store.hydrated`.
 
@@ -81,11 +80,11 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 
 | Folder | Contents | Notes |
 |---|---|---|
-| `ui/` | `primitives.tsx` (Button, Card, Field, Input, Select, SectionCard, StatusPill, ProgressBar, EmptyState, `cx`), `StatCard.tsx`, `DataTable.tsx`, `Overlay.tsx` | Design-system building blocks. Start here for any shared widget. |
-| `layout/` | `AppShell.tsx` (shell + **guards** + mobile FAB), `Sidebar.tsx`, `TopBar.tsx`, `nav.ts` (role→nav-items map) | The frame around every authenticated page. |
-| `dashboard/` | `HqDashboard.tsx`, `BranchDashboard.tsx`, `FundOverview.tsx` (released/spent/remaining block, reused on receipts page), `CategoryDonutCard.tsx`, `RecentExpenses.tsx` | |
-| `receipts/` | `GroupedExpenseList.tsx` (Month→Day→txn accordion), `ExpenseTable.tsx`, `ExpenseDetailDrawer.tsx`, `ReceiptPreview.tsx` | `showUsd` prop toggles USD vs local totals (branch = local only). |
-| `funding/` | `EditPlanModal.tsx`, `FundReleaseModal.tsx` | HQ funding actions. |
+| `ui/` | `primitives.tsx` (Button, Card, Field, Input, Select, SectionCard, Badge, StatusPill, ProgressBar, EmptyState, `cx`), `StatCard.tsx`, `DataTable.tsx`, `Overlay.tsx` (Modal + Drawer; Drawer has an optional `aside` side-panel slot) | Design-system building blocks. |
+| `layout/` | `AppShell.tsx` (shell + **guards** + mobile FAB), `Sidebar.tsx`, `TopBar.tsx`, `nav.ts` (role→nav-items; HQ has no Dashboard item) | The frame around every authenticated page. |
+| `dashboard/` | `BranchDashboard.tsx`, `FundOverview.tsx` (released/spent/remaining block, reused on the receipts page), `CategoryDonutCard.tsx` (presentational — takes pre-aggregated ledger slices), `RecentExpenses.tsx` | HQ dashboard was removed. |
+| `receipts/` | `GroupedExpenseList.tsx` (Month→Day→txn accordion, with per-group ⚠ flag counts), `ExpenseDetailDrawer.tsx`, `ReceiptPreview.tsx` (image + zoom lightbox), `ReviewBadge.tsx`, `ReviewPanel.tsx` (HQ decision panel), `HqReviewCard.tsx` (queue card = header + ReviewPanel), `EditExpenseForm.tsx` (branch correction form), `ExpenseTable.tsx` | The OCR-review + correction UI. |
+| `funding/` | `EditPlanModal.tsx`, `FundReleaseModal.tsx` | HQ funding actions (local-currency input). |
 | `charts/` | `DonutChart.tsx`, `BarChart.tsx` | Presentational SVG charts. |
 
 **Convention:** components are presentational and receive data via props; pages (in `routes/`) pull from `useStore()` / `useAuth()` and pass it down.
@@ -94,31 +93,36 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 
 ## 5. `src/lib/` — the logic layer
 
-### Data + backend (Week 2)
+### Data + backend
 | File | Responsibility |
 |---|---|
-| `db/schema.ts` | Drizzle schema — 9 tables (4 Better-Auth: `user`/`session`/`account`/`verification`; 5 domain: `branches`/`expense_categories`/`funding_plans`/`fund_releases`/`expenses`). `user` has extra `role` + `branchId`. |
-| `db/client.ts` | `postgres.js` connection (`DATABASE_URL`, the **limited** `petty_app` role) + Drizzle instance. Server-only. |
-| `auth/server.ts` | Better Auth config — email/password, hashed, `role`/`branchId` custom fields (`input:false`). Server-only. |
-| `auth/ctx.ts` | `getAuthCtx()` / `requireAuthCtx()` — resolves the cookie session → `{ userId, role, branchId }`. |
+| `db/schema.ts` | Drizzle schema — 9 tables (4 Better-Auth: `user`/`session`/`account`/`verification`; 5 domain: `branches`/`expense_categories`/`funding_plans`/`fund_releases`/`expenses`). `user` has extra `role`+`branchId`; `branches` has `local_currency`+`exchange_rate_to_usd`; `expenses` has `review_status`/`review_note`/`modify_count` + `ocr_raw` jsonb. |
+| `db/client.ts` | `postgres.js` connection (`DATABASE_URL`, the limited `petty_app` role) + Drizzle instance. Server-only. |
+| `auth/server.ts` | Better Auth config — email/password, hashed, `role`/`branchId` custom fields. Server-only. |
+| `auth/ctx.ts` | `getAuthCtx()` / `requireAuthCtx()` — resolve the cookie session → `{ userId, role, branchId }`. |
 | `auth/auth.tsx` | **Client** `AuthProvider` / `useAuth()`. Mirrors the cookie session into React state. `login` is async → `{ ok, error? }`. |
-| `server/scope.ts` | **Branch-isolation gate** (replaced `rls.ts` in W3): `branchScope(ctx, col)` → Drizzle `WHERE` (undefined for HQ), `canWriteBranch(ctx, branchId)`. Pure functions + the `AuthCtx` type. Unit-tested in `scope.test.ts` — no DB needed. |
-| `server/data.ts` | The data layer: row↔domain mappers (Date→ISO), `getBootstrapData(ctx)` (reads gated by `branchScope`), and every mutation. Sensitive fields (branchId, submittedBy) are derived from `ctx`, never the client. |
-| `server/ocr.ts` | **Real OCR** via Gemini (`gemini-flash-latest`; `GEMINI_MODEL` overrides). `runReceiptOcr(dataUrl)` → `{amount,currency,date,description,confidence}`. Server-only (API key). Never throws → OCR failure falls back to manual entry. |
-| `server/storage.ts` | *(Supabase build only)* receipt images → private Supabase **Storage** bucket. `uploadReceipt` (data URL → object path), `signedReceiptUrl` (short-lived view URL). Server-only (service_role key). `Win-branch` omits this and keeps base64 in the DB. |
-| `server/fns.ts` | The RPC API — `createServerFn` wrappers the client calls. Auth: `getSessionFn`/`signInFn`/`signOutFn`. Data: `bootstrapFn` + one fn per mutation; `ocrExtractFn`; `receiptUrlFn` *(Supabase build)*. |
-| `store/store.tsx` | **Client** `StoreProvider` / `useStore()`. Loads `bootstrapFn()` on login; each mutation calls a server fn then `refresh()`. Same shape as W1 — mutations now return promises. |
+| `server/scope.ts` | **Branch-isolation gate:** `branchScope(ctx, col)` → Drizzle `WHERE` (undefined for HQ), `canWriteBranch`. Pure + the `AuthCtx` type. Unit-tested (`scope.test.ts`) — no DB. |
+| `server/data.ts` | The data layer: row↔domain mappers, `getBootstrapData(ctx)` (reads gated by `branchScope`), `getBranchCount()` (public), and every mutation. Sensitive fields (branchId, submitter) derive from `ctx`, never the client. Review transitions go through the lifecycle (§7); money is never summed here. |
+| `server/ocr.ts` | **Gemini OCR** (`gemini-flash-latest`; `GEMINI_MODEL` overrides). `runReceiptVerification(dataUrl, ctx)` reads a receipt and reports amount/date/currency + category fit for verification. `runReceiptOcr` (raw extraction) is retained but no longer used by the submit form. Server-only (API key); never throws. |
+| `server/verify.ts` | **Pure OCR comparison** — `compareReceipt(entered, ocr)` → `{amountMatch, dateMatch, categoryOk, needsCheck}` (amount/date exact, category by confidence threshold). No DB. |
+| `server/fns.ts` | The RPC API — `createServerFn` wrappers the client calls. Auth: `getSessionFn`/`signInFn`/`signOutFn`. Data: `bootstrapFn`, `branchCountFn`, one fn per mutation, plus the review fns (`verifyExpenseFn`, `cancelExpenseFn`, `requestModifyFn`, `confirmModificationFn`, `updateExpenseFieldsFn`). |
+| `store/store.tsx` | **Client** `StoreProvider` / `useStore()`. Loads `bootstrapFn()` on login; each mutation calls a server fn then `refresh()`. |
 
 ### Pure logic + utilities (role-agnostic, no I/O)
 | File | Responsibility |
 |---|---|
-| `calc.ts` | All derived numbers — `branchFinancials`, `globalTotals`, `balanceStatus`, category/branch aggregation, category helpers, `branchById`. **Single source of truth for money math.** |
-| `types.ts` | Domain types (`Expense`, `Branch`, `FundingPlan`, `Role`, `CurrencyCode`, `AppData`, …) shared client+server. |
-| `format.ts` | `formatMoney` / `formatAmount` / `formatUsd` / `formatPercent` / date formatters. |
-| `currency/exchangeRate.ts` | Fixed seed FX rates + `toUsd` / `usdToLocal` / `rateToUsd`. (Live rates = future work.) |
-| `ocr/ocrService.ts` | ⚠ Legacy W1 **mock** OCR stub — superseded by `server/ocr.ts` (real Gemini) and no longer imported. |
+| `ledger.ts` | **The single home for a Branch's money.** `ledgerFor(data, branchId)` → released/spent/remaining/target (USD *and* local) + `byCategory`, all with **cancelled Expenses excluded** internally. `spentUsdOf(expenses)` totals an arbitrary subset (Reports); `globalLedger(data)` is the HQ-wide total. Never hands a raw array back to be summed. Tested in `ledger.test.ts`. |
+| `reviewLifecycle.ts` | **The single home for the OCR-review state machine.** A declarative `TRANSITIONS` table drives `availableActions(status, actor)` (which buttons show), `applyAction(status, action, actor)` (→ next status or a rejection — the one transition guard), `isResolved` / `needsAction`, and `nextStatusAfterVerify`. Both `data.ts` and the review UI read it. Tested in `reviewLifecycle.test.ts`. |
+| `ocrCheck.ts` | The **typed OCR verification record** (`OcrCheck`) + `parseOcrCheck` (the one reader). Persisted in the `ocr_raw` jsonb column, written/read only through this module, surfaced as `Expense.ocrCheck`. |
+| `calc.ts` | Selectors + non-money derivations: `expensesForBranch` (display) vs `fundableExpenses` (money), `releasesForBranch`, `activePlanForBranch`, `spendByCategory`, `balanceStatus`, category/lookup helpers. Money aggregates moved to `ledger.ts`. |
+| `types.ts` | Domain types (`Expense`, `Branch`, `ReviewStatus`, `CurrencyCode`, `AppData`, …) shared client+server. |
+| `format.ts` | `formatMoney` / `formatAmount` (no symbol) / `formatUsd` / `formatPercent` / dates. Decimal places come from `Intl` per currency (VND→0, THB→2), with MWK/CRC overridden to 0. |
+| `currency/exchangeRate.ts` | Fixed per-branch FX. `toUsd` / `usdToLocal`; `rateForCurrency(currency, branches)` prefers the owning branch's rate (never a silent 1.0); `availableCurrencies(own, branches)` lists every branch's currency + the built-ins. Tested in `exchangeRate.test.ts`. |
 | `export.ts` | CSV builder + `printReport` (PDF via print). |
 | `id.ts` | ID generation. |
+| `ocr/ocrService.ts` | ⚠ Legacy W1 **mock** OCR stub — superseded by `server/ocr.ts`, no longer imported. |
+
+*(Supabase build only: `server/storage.ts` — receipt images → a private Supabase Storage bucket, with `receiptUrlFn` for signed view URLs. The pure build omits it and keeps base64 in the DB.)*
 
 ---
 
@@ -126,45 +130,43 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 
 | File | Role |
 |---|---|
-| `scripts/seed.ts` | Seeds domain tables (`bun run db:seed`). |
+| `scripts/seed.ts` | Seeds domain tables from `src/data/*.json` (`bun run db:seed`); seed expenses are inserted as `review_status = 'ok'`. |
 | `scripts/seed-users.ts` | Creates the 5 Better-Auth accounts, hashed (`bun run db:seed:users`). |
-| `scripts/drop-rls.sql` | Disables RLS + drops the per-branch policies on the scoped tables (run once per DB). Supersedes the old `rls.sql` — isolation now lives in app code (`scope.ts`). |
+| `scripts/drop-rls.sql` | Disables RLS + drops the old per-branch policies (isolation now lives in `scope.ts`). |
 | `scripts/verify-data.ts` | Proves isolation through the app's own `getBootstrapData()`. |
 | `drizzle.config.ts` | drizzle-kit target — uses `ADMIN_DATABASE_URL` (owner role) for `db:push` / `db:studio`. |
 | `vite.config.ts` | TanStack Start + Vite plugins; `#/*` path alias → `src/*`. |
 | `biome.json` | Lint/format — tabs, double quotes. |
 | `.env` (gitignored) | `DATABASE_URL` (app), `ADMIN_DATABASE_URL` (owner), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`); Supabase build also `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. |
 
-**Two DB roles:** migrations/seed run as owner `postgres`; the app runs as the limited `petty_app` (row DML grants, no DDL). Since W3 dropped RLS, the role no longer decides *which rows* are visible — that's `branchScope` in app code now — but a limited app role is still good least-privilege. See [`WEEK2_PLAN.md`](../../WEEK2_PLAN.md) §4.1.
+**Two DB roles:** migrations/seed run as owner `postgres`; the app runs as the limited `petty_app` (row DML, no DDL). Isolation is `branchScope` in app code, not RLS — the limited role is least-privilege only.
 
 ---
 
-## 7. ⚠ Legacy / dead code (W1 → orphaned by W2)
+## 7. The OCR verification workflow
 
-The W2 refactor moved persistence to Postgres but left the W1 in-browser store in the tree, now **unreferenced**:
+OCR is a **post-submission auditor**, not a data-entry helper. See [`OCR_VERIFY_DESIGN.md`](../../OCR_VERIFY_DESIGN.md) (repo root) for the full spec.
 
-| File | Status |
-|---|---|
-| `src/lib/store/persistence.ts` | Orphaned — imports `data/seed` but nothing imports it. The live store is `store/store.tsx`. |
-| `src/data/seed.ts` + `src/data/*.json` | Orphaned as a runtime source — only `persistence.ts` reads them. The DB is now seeded from `scripts/seed.ts`. (The JSON still documents the seed shape.) |
+1. The branch **types every field manually** and uploads the receipt → the row is saved as `checking`, submit is instant.
+2. The browser fires **`verifyExpense`**: `server/ocr.ts` reads the receipt, `server/verify.ts` compares it to the entered amount/date/category, and the result is stored as a typed **`OcrCheck`** (`ocrCheck.ts`). The lifecycle routes it to `ok` (silent) or **`need_check`** (flagged). OCR never decides an outcome — it only flags.
+3. HQ resolves a flag from the receipt detail or the Branches "Needs Check" queue: **Cancel** / **Modify** / **Correct** (HQ's decision outranks OCR). A Modify returns it to the branch, which corrects the typed fields (`EditExpenseForm`) → re-verify → **`after_modify_check`** → HQ **Correct** → `correct_modification`.
 
-> These are safe to delete once the browser click-through confirms the Postgres path fully replaces them. Kept for now as a fallback/reference during the W2 verification window.
+**Statuses** (`ReviewStatus`): `checking · ok · need_check · cancelled · modify_requested · after_modify_check · correct_modification`. Only `cancelled` is excluded from balances (the ledger owns that rule). Every legal transition — and which actor may make it — is the `TRANSITIONS` table in `reviewLifecycle.ts`; the UI asks `availableActions` so it can never offer a move the server would reject.
 
 ---
 
-## 8. Request lifecycle — one mutation, end to end
+## 8. Request lifecycle — one submission, end to end
 
 **"A Singapore branch user submits a receipt":**
 
-1. **`routes/_app/submit-receipt.tsx`** — user uploads an image → `ocr/ocrService.ts` (mock) pre-fills the form → user confirms → calls `useStore().addExpense(input)`. Currency snapshot computed via `currency/exchangeRate.ts` (`toUsd`).
-2. **`store/store.tsx`** — `addExpense` calls `submitExpenseFn({ data: input })`. Note the input carries *no* branchId — that's derived server-side.
-3. **`server/fns.ts`** — `submitExpenseFn` handler runs on the server: `requireAuthCtx()` → resolves the cookie session.
-4. **`auth/ctx.ts` → `auth/server.ts`** — Better Auth validates the session cookie → `{ userId, role:'branch_user', branchId:'br-sg' }`.
-5. **`server/data.ts`** — `submitExpense(ctx, input)` sets `branchId = ctx.branchId` (server-derived, never from the client). *(Supabase build: uploads the image to the Storage bucket first, stores only the path.)*
-6. **`db/client.ts` → Postgres** — a plain Drizzle `INSERT` as `petty_app`. Row committed.
-7. Back in **`store/store.tsx`** — `addExpense` awaits then `refresh()` → `bootstrapFn()` re-reads branch-scoped data → React re-renders the fund summary + receipt list.
+1. **`routes/_app/submit-receipt.tsx`** — user uploads an image and types the details → `useStore().addExpense(input)`. The rate is resolved via `currency/exchangeRate.ts`; the input carries *no* branchId.
+2. **`store/store.tsx`** — `addExpense` calls `submitExpenseFn({ data })`, returns the new id, then fires `verifyExpense(id)` (background).
+3. **`server/fns.ts` → `auth/ctx.ts`** — `requireAuthCtx()` validates the cookie session → `{ userId, role:'branch_user', branchId:'br-sg' }`.
+4. **`server/data.ts`** — `submitExpense(ctx, input)` sets `branchId = ctx.branchId` (server-derived) and `review_status` defaults to `checking`. Plain Drizzle `INSERT` as `petty_app`.
+5. **`verifyExpense(id)`** — loads the row + receipt, runs `runReceiptVerification` (`server/ocr.ts`) + `compareReceipt` (`server/verify.ts`), writes a typed `OcrCheck`, and sets the status via `nextStatusAfterVerify` (`ok` / `need_check`).
+6. Back in **`store/store.tsx`** — `refresh()` → `bootstrapFn()` re-reads branch-scoped data → React re-renders.
 
-**Read path:** on login, `StoreProvider` calls `bootstrapFn()` → `getBootstrapData(ctx)` → each branch-scoped read runs `.where(branchScope(ctx, table.branchId))` → a branch user gets only `br-sg` rows; HQ gets all. Isolation is enforced by the `branchScope` helper (unit-tested), not the database.
+**Read path:** on login `StoreProvider` calls `bootstrapFn()` → `getBootstrapData(ctx)` → each branch-scoped read runs `.where(branchScope(ctx, table.branchId))` → a branch user gets only their rows; HQ gets all.
 
 ---
 
@@ -173,8 +175,10 @@ The W2 refactor moved persistence to Postgres but left the W1 in-browser store i
 - **Path alias:** `#/*` → `src/*`.
 - **Add a page:** new file under `routes/_app/`; add nav in `components/layout/nav.ts`; if role-restricted, add its path to `HQ_ONLY`/`BRANCH_ONLY` in `AppShell.tsx`.
 - **Add a mutation:** function in `server/data.ts` (branch-scoped reads use `branchScope`; writes derive `branchId` from `ctx`) → wrapper in `server/fns.ts` → method in `store/store.tsx`.
-- **Branch isolation** = `branchScope` in `server/scope.ts` (pure, unit-tested in `scope.test.ts`). Every branch-scoped read MUST pass through it — a forgotten `branchScope` is a leak; there's no DB RLS backstop anymore.
-- **Money math:** always via `calc.ts`; never inline. Historical USD snapshots are never recalculated.
-- **Never import** `db/`, `auth/server.ts`, `server/data.ts`, `server/ocr.ts`, or `server/storage.ts` from client code — they're server-only and must stay out of the browser bundle (verified: they land only in `.output/server/`).
+- **Branch isolation** = `branchScope` in `server/scope.ts` (pure, unit-tested). Every branch-scoped read MUST pass through it — there is no DB RLS backstop.
+- **Money math** = `ledger.ts` only; never sum expenses inline. The cancelled-exclusion rule lives there. Historical USD snapshots are never recalculated.
+- **Review transitions** = `reviewLifecycle.ts` only; never hand-code status checks. The UI reads `availableActions`.
+- **The OCR check** is the typed `OcrCheck` (`ocrCheck.ts`); never re-parse `ocr_raw` at a call site.
+- **Never import** `db/`, `auth/server.ts`, `server/*` from client code — server-only, must stay out of the browser bundle.
 - **Generated files** (`routeTree.gen.ts`) are never hand-edited.
 ```

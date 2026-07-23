@@ -142,7 +142,7 @@ All data lives in your browser. Use **Reset demo data** (Settings) to restore se
 
 | Week | Phase | Deliverables |
 |---|---|---|
-| W1 | Requirements & Design | UI prototype + PRD (`docs/PRD.md`) + Mockups (`docs/MOCKUPS.md`) |
+| W1 | Requirements & Design | UI prototype + requirements + mockups |
 | W2 | Foundation & Auth | Project setup, Better Auth, RLS, role setup |
 | W3 | OCR Integration | OCR API + receipt upload pipeline |
 | W4 | Core Features | Expense entry, category selector, fund balance view |
