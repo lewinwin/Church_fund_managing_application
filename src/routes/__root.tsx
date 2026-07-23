@@ -14,7 +14,12 @@ export const Route = createRootRoute({
 			},
 			{ title: "611 Ministry Funding" },
 		],
-		links: [{ rel: "stylesheet", href: appCss }],
+		links: [
+			{ rel: "stylesheet", href: appCss },
+			// Brand tab icon (the Coins mark). SVG is honoured by all modern
+			// browsers; overrides the default /favicon.ico fallback.
+			{ rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+		],
 	}),
 	shellComponent: RootDocument,
 });
