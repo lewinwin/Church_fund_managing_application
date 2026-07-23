@@ -12,13 +12,9 @@ import {
 } from "#/components/ui/primitives";
 import { StatCard } from "#/components/ui/StatCard";
 import { useAuth } from "#/lib/auth/auth";
-import {
-	branchFinancials,
-	categoryLabel,
-	globalTotals,
-	primaryCategories,
-} from "#/lib/calc";
+import { categoryLabel, primaryCategories } from "#/lib/calc";
 import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { globalLedger, ledgerFor, spentUsdOf } from "#/lib/ledger";
 import { type CsvRow, downloadCsv, printReport } from "#/lib/export";
 import {
 	formatDate,
@@ -60,16 +56,18 @@ function ReportsPage() {
 			.sort((a, b) => (a.expenseDate < b.expenseDate ? 1 : -1));
 	}, [base, branchId, categoryId, from, to]);
 
-	const spentFiltered = filtered.reduce((s, e) => s + e.usdAmount, 0);
+	// Spend over the filtered set, excluding cancelled — same rule as the branch
+	// balance, so this tile can't disagree with Remaining.
+	const spentFiltered = spentUsdOf(filtered);
 
 	// Released / remaining reflect the selected scope (a branch, or all).
 	const scope = useMemo(() => {
 		if (branchId === "all") {
-			const t = globalTotals(data);
-			return { released: t.releasedUsd, remaining: t.remainingUsd };
+			const g = globalLedger(data);
+			return { released: g.releasedUsd, remaining: g.remainingUsd };
 		}
-		const f = branchFinancials(data, branchId);
-		return { released: f.releasedUsd, remaining: f.remainingUsd };
+		const l = ledgerFor(data, branchId);
+		return { released: l.releasedUsd, remaining: l.remainingUsd };
 	}, [data, branchId]);
 
 	const branchName = (id: string) =>

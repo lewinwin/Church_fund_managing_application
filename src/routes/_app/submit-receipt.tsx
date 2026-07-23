@@ -108,7 +108,6 @@ function SubmitReceiptPage() {
 				receiptFileName: fileName,
 				receiptDataUrl: dataUrl,
 				ocrConfidence: null,
-				ocrRaw: null,
 			});
 			// Fire the background verification — don't block the success screen.
 			// If the tab closes before it lands, HQ/branch can Re-check later.

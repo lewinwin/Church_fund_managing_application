@@ -3,10 +3,10 @@ import { ArrowLeft, PlusCircle, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { FundOverview } from "#/components/dashboard/FundOverview";
 import { EditPlanModal } from "#/components/funding/EditPlanModal";
+import { FundReleaseHistory } from "#/components/funding/FundReleaseHistory";
 import { FundReleaseModal } from "#/components/funding/FundReleaseModal";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { GroupedExpenseList } from "#/components/receipts/GroupedExpenseList";
-import { type Column, DataTable } from "#/components/ui/DataTable";
 import {
 	Badge,
 	Button,
@@ -16,15 +16,14 @@ import {
 import {
 	activePlanForBranch,
 	branchById,
-	branchFinancials,
 	expensesForBranch,
 	releasesForBranch,
-	userById,
 } from "#/lib/calc";
 import { usdToLocal } from "#/lib/currency/exchangeRate";
-import { formatDate, formatMoney } from "#/lib/format";
+import { formatMoney } from "#/lib/format";
+import { ledgerFor } from "#/lib/ledger";
 import { useStore } from "#/lib/store/store";
-import type { Expense, FundRelease } from "#/lib/types";
+import type { Expense } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/branches/$branchId")({
 	component: BranchDetailPage,
@@ -57,40 +56,12 @@ function BranchDetailPage() {
 	const rate = branch.exchangeRateToUsd;
 	const local = (usd: number) => formatMoney(usdToLocal(usd, rate), cur);
 
-	const fin = branchFinancials(data, branch.id);
+	const led = ledgerFor(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
 	const releases = releasesForBranch(data, branch.id).sort((a, b) =>
 		a.releaseDate < b.releaseDate ? 1 : -1,
 	);
 	const plan = activePlanForBranch(data, branch.id);
-
-	const releaseColumns: Column<FundRelease>[] = [
-		{
-			key: "date",
-			header: "Release date",
-			render: (r) => formatDate(r.releaseDate),
-		},
-		{
-			key: "amount",
-			header: `Amount (${cur})`,
-			align: "right",
-			render: (r) => (
-				<span className="font-semibold">{local(r.amountUsd)}</span>
-			),
-		},
-		{
-			key: "note",
-			header: "Note",
-			render: (r) => (
-				<span className="text-[var(--color-muted)]">{r.note ?? "—"}</span>
-			),
-		},
-		{
-			key: "by",
-			header: "Recorded by",
-			render: (r) => userById(data.users, r.createdByUserId)?.name ?? "—",
-		},
-	];
 
 	return (
 		<div className="space-y-5">
@@ -123,11 +94,11 @@ function BranchDetailPage() {
 
 			<FundOverview
 				title="Fund balance"
-				releasedUsd={fin.releasedUsd}
-				spentUsd={fin.spentUsd}
-				remainingUsd={fin.remainingUsd}
-				percentUsed={fin.percentUsed}
-				status={fin.status}
+				releasedUsd={led.releasedUsd}
+				spentUsd={led.spentUsd}
+				remainingUsd={led.remainingUsd}
+				percentUsed={led.percentUsed}
+				status={led.status}
 				displayCurrency={cur}
 				displayRate={rate}
 				localLine={
@@ -139,19 +110,12 @@ function BranchDetailPage() {
 				}
 			/>
 
-			<SectionCard title="Fund release history">
-				<DataTable
-					columns={releaseColumns}
-					rows={releases}
-					getKey={(r) => r.id}
-					empty={
-						<EmptyState
-							title="No releases yet"
-							description="Record the first fund release for this branch."
-						/>
-					}
-				/>
-			</SectionCard>
+			<FundReleaseHistory
+				releases={releases}
+				users={data.users}
+				currency={cur}
+				rate={rate}
+			/>
 
 			<SectionCard title="Expenses">
 				<GroupedExpenseList

@@ -1,12 +1,10 @@
 // Pure derivation of balances, statuses and aggregations from AppData.
 // Every query is scoped by role + branchId to mirror the production RLS
 // contract, so data isolation is provable now (context.md testing priorities).
-import { usdToLocal } from "#/lib/currency/exchangeRate";
 import type {
 	AppData,
 	BalanceStatus,
 	Branch,
-	BranchFinancials,
 	Category,
 	Expense,
 	FundingPlan,
@@ -83,61 +81,10 @@ export function activePlanForBranch(
 	);
 }
 
-export function branchFinancials(
-	data: AppData,
-	branchId: string,
-): BranchFinancials {
-	const releasedUsd = round2(
-		releasesForBranch(data, branchId).reduce((s, r) => s + r.amountUsd, 0),
-	);
-	const spentUsd = round2(
-		fundableExpenses(data, branchId).reduce((s, e) => s + e.usdAmount, 0),
-	);
-	const remainingUsd = round2(releasedUsd - spentUsd);
-	const percentUsed = releasedUsd > 0 ? spentUsd / releasedUsd : 0;
-	const plan = activePlanForBranch(data, branchId);
-	return {
-		branchId,
-		releasedUsd,
-		spentUsd,
-		remainingUsd,
-		percentUsed,
-		status: balanceStatus(remainingUsd, releasedUsd),
-		targetUsd: plan?.totalTargetUsd ?? 0,
-	};
-}
-
-export interface GlobalTotals {
-	releasedUsd: number;
-	spentUsd: number;
-	remainingUsd: number;
-	percentUsed: number;
-	healthy: number;
-	warning: number;
-	low: number;
-}
-
-export function globalTotals(data: AppData): GlobalTotals {
-	const perBranch = data.branches.map((b) => branchFinancials(data, b.id));
-	const releasedUsd = round2(perBranch.reduce((s, f) => s + f.releasedUsd, 0));
-	const spentUsd = round2(perBranch.reduce((s, f) => s + f.spentUsd, 0));
-	const remainingUsd = round2(releasedUsd - spentUsd);
-	return {
-		releasedUsd,
-		spentUsd,
-		remainingUsd,
-		percentUsed: releasedUsd > 0 ? spentUsd / releasedUsd : 0,
-		healthy: perBranch.filter((f) => f.status === "healthy").length,
-		warning: perBranch.filter((f) => f.status === "warning").length,
-		low: perBranch.filter((f) => f.status === "low").length,
-	};
-}
-
-export function remainingLocal(data: AppData, branchId: string): number {
-	const { remainingUsd } = branchFinancials(data, branchId);
-	const branch = branchById(data.branches, branchId);
-	return usdToLocal(remainingUsd, branch?.exchangeRateToUsd ?? 1);
-}
+// Per-branch and HQ-wide money aggregates live in the branch ledger (ledger.ts),
+// which owns the cancelled-exclusion rule. calc.ts keeps only the pure primitives
+// the ledger is built from (fundableExpenses, releasesForBranch, spendByCategory,
+// balanceStatus) plus the lookup/category helpers below.
 
 // ---------------------------------------------------------------------------
 // Category aggregation
@@ -172,22 +119,6 @@ export function spendByCategory(
 		}
 	}
 	return [...byId.values()].sort((a, b) => b.usd - a.usd);
-}
-
-export interface BranchSlice {
-	branchId: string;
-	label: string;
-	usd: number;
-}
-
-export function spendByBranch(data: AppData): BranchSlice[] {
-	return data.branches
-		.map((b) => ({
-			branchId: b.id,
-			label: b.name,
-			usd: branchFinancials(data, b.id).spentUsd,
-		}))
-		.sort((a, b) => b.usd - a.usd);
 }
 
 // ---------------------------------------------------------------------------

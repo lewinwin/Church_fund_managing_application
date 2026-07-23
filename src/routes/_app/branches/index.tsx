@@ -7,42 +7,31 @@ import {
 	ProgressBar,
 	SectionCard,
 } from "#/components/ui/primitives";
-import { branchById, branchFinancials } from "#/lib/calc";
-import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { branchById } from "#/lib/calc";
 import { formatAmount, formatPercent } from "#/lib/format";
+import { ledgerFor } from "#/lib/ledger";
+import { availableActions } from "#/lib/reviewLifecycle";
 import { useStore } from "#/lib/store/store";
-import type { Branch } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/branches/")({
 	component: BranchesPage,
 });
 
-// Each branch's figures are shown in its OWN local currency (matching the branch
-// detail page), with no symbol — the currency code is shown under the branch name.
-function local(usd: number, branch: Branch): string {
-	return formatAmount(
-		usdToLocal(usd, branch.exchangeRateToUsd),
-		branch.localCurrency,
-	);
-}
-
 function BranchesPage() {
 	const { data } = useStore();
 	const navigate = useNavigate();
 
+	// Each branch's figures are shown in its OWN local currency (matching the
+	// branch detail page), with no symbol — the code is under the branch name.
 	const rows = data.branches.map((b) => ({
 		branch: b,
-		fin: branchFinancials(data, b.id),
+		led: ledgerFor(data, b.id),
 	}));
 
-	// Cross-branch review queue: everything OCR flagged or that came back after a
-	// modify, newest first.
+	// Cross-branch review queue: everything HQ can currently act on (OCR-flagged or
+	// resubmitted after a modify), newest first.
 	const flagged = data.expenses
-		.filter(
-			(e) =>
-				e.reviewStatus === "need_check" ||
-				e.reviewStatus === "after_modify_check",
-		)
+		.filter((e) => availableActions(e.reviewStatus, "hq_admin").length > 0)
 		.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
 	const columns: Column<(typeof rows)[number]>[] = [
@@ -62,13 +51,13 @@ function BranchesPage() {
 			key: "released",
 			header: "Released",
 			align: "right",
-			render: (r) => local(r.fin.releasedUsd, r.branch),
+			render: (r) => formatAmount(r.led.releasedLocal, r.led.currency),
 		},
 		{
 			key: "spent",
 			header: "Spent",
 			align: "right",
-			render: (r) => local(r.fin.spentUsd, r.branch),
+			render: (r) => formatAmount(r.led.spentLocal, r.led.currency),
 		},
 		{
 			key: "remaining",
@@ -76,7 +65,7 @@ function BranchesPage() {
 			align: "right",
 			render: (r) => (
 				<span className="font-semibold">
-					{local(r.fin.remainingUsd, r.branch)}
+					{formatAmount(r.led.remainingLocal, r.led.currency)}
 				</span>
 			),
 		},
@@ -86,18 +75,18 @@ function BranchesPage() {
 			render: (r) => (
 				<div className="flex min-w-[120px] items-center gap-2">
 					<ProgressBar
-						value={r.fin.percentUsed}
+						value={r.led.percentUsed}
 						tone={
-							r.fin.status === "low"
+							r.led.status === "low"
 								? "red"
-								: r.fin.status === "warning"
+								: r.led.status === "warning"
 									? "amber"
 									: "forest"
 						}
 						className="flex-1"
 					/>
 					<span className="w-10 text-right text-xs text-[var(--color-muted)]">
-						{formatPercent(r.fin.percentUsed)}
+						{formatPercent(r.led.percentUsed)}
 					</span>
 				</div>
 			),

@@ -14,8 +14,9 @@ import {
 	Select,
 	Textarea,
 } from "#/components/ui/primitives";
-import { activePlanForBranch, branchFinancials } from "#/lib/calc";
+import { activePlanForBranch } from "#/lib/calc";
 import { toUsd, usdToLocal } from "#/lib/currency/exchangeRate";
+import { ledgerFor } from "#/lib/ledger";
 import {
 	formatAmount,
 	formatMoney,
@@ -57,22 +58,21 @@ function FundingPlansPage() {
 	const [addTargetPlan, setAddTargetPlan] = useState<PlanRow | null>(null);
 
 	const rows: PlanRow[] = data.fundingPlans.map((p) => {
-		const fin = branchFinancials(data, p.branchId);
+		const led = ledgerFor(data, p.branchId);
 		const branch = data.branches.find((b) => b.id === p.branchId);
-		const rate = branch?.exchangeRateToUsd ?? 1;
 		return {
 			planId: p.id,
 			branchId: p.branchId,
 			branchName: branch?.name ?? p.branchId,
-			localCurrency: branch?.localCurrency ?? "USD",
-			rate,
+			localCurrency: led.currency,
+			rate: led.rate,
 			targetUsd: p.totalTargetUsd,
-			targetLocal: usdToLocal(p.totalTargetUsd, rate),
-			releasedUsd: fin.releasedUsd,
-			spentUsd: fin.spentUsd,
-			availableUsd: fin.remainingUsd,
-			remainingTargetUsd: Math.max(0, p.totalTargetUsd - fin.releasedUsd),
-			percentUsed: fin.percentUsed,
+			targetLocal: usdToLocal(p.totalTargetUsd, led.rate),
+			releasedUsd: led.releasedUsd,
+			spentUsd: led.spentUsd,
+			availableUsd: led.remainingUsd,
+			remainingTargetUsd: Math.max(0, p.totalTargetUsd - led.releasedUsd),
+			percentUsed: led.percentUsed,
 			status: p.status,
 		};
 	});

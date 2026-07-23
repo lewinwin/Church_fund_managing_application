@@ -7,15 +7,9 @@ import { RecentExpenses } from "#/components/dashboard/RecentExpenses";
 import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { Button, EmptyState, SectionCard } from "#/components/ui/primitives";
 import { StatCard } from "#/components/ui/StatCard";
-import {
-	activePlanForBranch,
-	branchFinancials,
-	expensesForBranch,
-	fundableExpenses,
-	remainingLocal,
-} from "#/lib/calc";
-import { usdToLocal } from "#/lib/currency/exchangeRate";
+import { activePlanForBranch, expensesForBranch } from "#/lib/calc";
 import { formatMoney } from "#/lib/format";
+import { ledgerFor } from "#/lib/ledger";
 import { useStore } from "#/lib/store/store";
 import type { Branch, Expense } from "#/lib/types";
 
@@ -23,15 +17,11 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 	const { data } = useStore();
 	const [selected, setSelected] = useState<Expense | null>(null);
 
-	const fin = branchFinancials(data, branch.id);
+	const led = ledgerFor(data, branch.id);
+	// All expenses drive the display list + count; the ledger owns the money.
 	const expenses = expensesForBranch(data, branch.id);
-	// Cancelled expenses are shown in lists but must not skew the category chart.
-	const fundable = fundableExpenses(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
 	const cur = branch.localCurrency;
-	const remLocal = remainingLocal(data, branch.id);
-	const releasedLocal = usdToLocal(fin.releasedUsd, branch.exchangeRateToUsd);
-	const spentLocal = usdToLocal(fin.spentUsd, branch.exchangeRateToUsd);
 
 	return (
 		<div className="space-y-5">
@@ -40,20 +30,20 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 			<div className="hidden gap-4 sm:grid sm:grid-cols-3">
 				<StatCard
 					label="Total released"
-					value={formatMoney(releasedLocal, cur)}
+					value={formatMoney(led.releasedLocal, cur)}
 					icon={<Wallet size={17} />}
 					sub="Funds received from HQ"
 				/>
 				<StatCard
 					label="Total spent"
-					value={formatMoney(spentLocal, cur)}
+					value={formatMoney(led.spentLocal, cur)}
 					accent="red"
 					icon={<ArrowUpRight size={17} />}
 					sub={`${expenses.length} receipts`}
 				/>
 				<StatCard
 					label="Remaining"
-					value={formatMoney(remLocal, cur)}
+					value={formatMoney(led.remainingLocal, cur)}
 					accent="lime"
 					icon={<ArrowDownRight size={17} />}
 					sub="Available to spend"
@@ -64,13 +54,13 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 				<div className="space-y-5 lg:col-span-2">
 					<FundOverview
 						title="Fund balance"
-						releasedUsd={fin.releasedUsd}
-						spentUsd={fin.spentUsd}
-						remainingUsd={fin.remainingUsd}
-						percentUsed={fin.percentUsed}
-						status={fin.status}
+						releasedUsd={led.releasedUsd}
+						spentUsd={led.spentUsd}
+						remainingUsd={led.remainingUsd}
+						percentUsed={led.percentUsed}
+						status={led.status}
 						displayCurrency={cur}
-						displayRate={branch.exchangeRateToUsd}
+						displayRate={led.rate}
 						localLine={`All figures shown in ${cur} at the current exchange rate.`}
 					/>
 
@@ -126,8 +116,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 						</SectionCard>
 					) : (
 						<CategoryDonutCard
-							expenses={fundable}
-							categories={data.categories}
+							categorySlices={led.byCategory}
 							displayCurrency={cur}
 							displayRate={branch.exchangeRateToUsd}
 						/>

@@ -42,11 +42,16 @@ import type {
 	User,
 } from "#/lib/types";
 
-// Review fields (reviewStatus/reviewNote/modifyCount) are set server-side, so the
-// client never supplies them when submitting.
+// Review fields (reviewStatus/reviewNote/modifyCount) and the OCR check are set
+// server-side, so the client never supplies them when submitting.
 export type NewExpense = Omit<
 	Expense,
-	"id" | "createdAt" | "reviewStatus" | "reviewNote" | "modifyCount"
+	| "id"
+	| "createdAt"
+	| "reviewStatus"
+	| "reviewNote"
+	| "modifyCount"
+	| "ocrCheck"
 >;
 export type NewFundingPlan = Omit<FundingPlan, "id" | "createdAt">;
 export type NewFundRelease = Omit<FundRelease, "id" | "createdAt">;

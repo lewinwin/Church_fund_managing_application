@@ -6,12 +6,14 @@ import { ExpenseDetailDrawer } from "#/components/receipts/ExpenseDetailDrawer";
 import { GroupedExpenseList } from "#/components/receipts/GroupedExpenseList";
 import { Button, SectionCard } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
+import { FundReleaseHistory } from "#/components/funding/FundReleaseHistory";
 import {
 	activePlanForBranch,
 	branchById,
-	branchFinancials,
 	expensesForBranch,
+	releasesForBranch,
 } from "#/lib/calc";
+import { ledgerFor } from "#/lib/ledger";
 import { useStore } from "#/lib/store/store";
 import type { Expense } from "#/lib/types";
 
@@ -31,7 +33,7 @@ function ExpensesPage() {
 
 	// Data isolation: only this branch's expenses are ever loaded.
 	const expenses = expensesForBranch(data, branch.id);
-	const fin = branchFinancials(data, branch.id);
+	const led = ledgerFor(data, branch.id);
 	const plan = activePlanForBranch(data, branch.id);
 	const cur = branch.localCurrency;
 
@@ -39,13 +41,13 @@ function ExpensesPage() {
 		<div className="space-y-5">
 			<FundOverview
 				title="Fund balance"
-				releasedUsd={fin.releasedUsd}
-				spentUsd={fin.spentUsd}
-				remainingUsd={fin.remainingUsd}
-				percentUsed={fin.percentUsed}
-				status={fin.status}
+				releasedUsd={led.releasedUsd}
+				spentUsd={led.spentUsd}
+				remainingUsd={led.remainingUsd}
+				percentUsed={led.percentUsed}
+				status={led.status}
 				displayCurrency={cur}
-				displayRate={branch.exchangeRateToUsd}
+				displayRate={led.rate}
 				localLine={
 					plan
 						? `Active plan: ${plan.description} · all figures in ${cur}.`
@@ -75,6 +77,15 @@ function ExpensesPage() {
 					onSelect={setSelected}
 				/>
 			</SectionCard>
+
+			<FundReleaseHistory
+				releases={releasesForBranch(data, branch.id).sort((a, b) =>
+					a.releaseDate < b.releaseDate ? 1 : -1,
+				)}
+				users={data.users}
+				currency={cur}
+				rate={led.rate}
+			/>
 
 			<ExpenseDetailDrawer
 				expense={selected}

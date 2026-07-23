@@ -4,22 +4,21 @@ import {
 	DonutLegend,
 } from "#/components/charts/DonutChart";
 import { EmptyState, SectionCard } from "#/components/ui/primitives";
-import { spendByCategory } from "#/lib/calc";
+import type { CategorySlice } from "#/lib/calc";
 import { usdToLocal } from "#/lib/currency/exchangeRate";
 import { formatMoney, formatUsd } from "#/lib/format";
-import type { Category, CurrencyCode, Expense } from "#/lib/types";
+import type { CurrencyCode } from "#/lib/types";
 
-// Expense-by-category donut + legend. HQ views show USD; branch views pass
-// displayCurrency to show local amounts (proportions are identical).
+// Expense-by-category donut + legend. Presentational: it takes pre-aggregated
+// category slices (from the branch ledger, which already excludes cancelled).
+// HQ views show USD; branch views pass displayCurrency for local amounts.
 export function CategoryDonutCard({
-	expenses,
-	categories,
+	categorySlices,
 	title = "Expense by category",
 	displayCurrency,
 	displayRate,
 }: {
-	expenses: Expense[];
-	categories: Category[];
+	categorySlices: CategorySlice[];
 	title?: string;
 	displayCurrency?: CurrencyCode;
 	displayRate?: number;
@@ -29,7 +28,7 @@ export function CategoryDonutCard({
 		isLocal
 			? formatMoney(usdToLocal(usd, displayRate ?? 1), displayCurrency)
 			: formatUsd(usd);
-	const slices = spendByCategory(expenses, categories).map((s, i) => ({
+	const slices = categorySlices.map((s, i) => ({
 		label: s.label,
 		value: s.usd,
 		color: CHART_COLORS[i % CHART_COLORS.length] as string,

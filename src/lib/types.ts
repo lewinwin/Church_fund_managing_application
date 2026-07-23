@@ -1,6 +1,8 @@
 // Domain types for the 611 Ministry Funding prototype.
 // Mirrors the schema in context.md so the W2 DB migration reshapes nothing.
 
+import type { OcrCheck } from "#/lib/ocrCheck";
+
 export type Role = "hq_admin" | "branch_user";
 
 // A 3-letter ISO currency code. Kept as a broad string (not a fixed union) so
@@ -89,7 +91,9 @@ export interface Expense {
 	/** base64 data URL held client-side for preview (no real storage in W1). */
 	receiptDataUrl: string | null;
 	ocrConfidence: number | null;
-	ocrRaw: JsonValue | null;
+	/** The typed OCR verification record (entered-vs-receipt comparison), or null
+	 *  before it has been checked. Persisted in the ocr_raw jsonb column. */
+	ocrCheck: OcrCheck | null;
 	/** OCR verification lifecycle status. Only `cancelled` is excluded from balances. */
 	reviewStatus: ReviewStatus;
 	/** HQ's optional note on Cancel/Modify, shown to the branch. */
@@ -130,15 +134,4 @@ export interface AppData {
 
 export interface Session {
 	userId: string;
-}
-
-/** Derived per-branch financials (never persisted — computed on read). */
-export interface BranchFinancials {
-	branchId: string;
-	releasedUsd: number;
-	spentUsd: number;
-	remainingUsd: number;
-	percentUsed: number;
-	status: BalanceStatus;
-	targetUsd: number;
 }

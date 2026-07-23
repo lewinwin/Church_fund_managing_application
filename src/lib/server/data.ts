@@ -6,6 +6,13 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "#/lib/db/client";
 import * as t from "#/lib/db/schema";
 import { newId } from "#/lib/id";
+import { type OcrCheck, parseOcrCheck } from "#/lib/ocrCheck";
+import {
+	type Actor,
+	type ReviewAction,
+	applyAction,
+	nextStatusAfterVerify,
+} from "#/lib/reviewLifecycle";
 import type {
 	AppData,
 	Branch,
@@ -15,22 +22,13 @@ import type {
 	FundingPlan,
 	FundingPlanStatus,
 	FundRelease,
-	JsonValue,
 	ReviewStatus,
 	Role,
 	User,
 } from "#/lib/types";
 import { runReceiptVerification } from "./ocr";
 import { type AuthCtx, branchScope } from "./scope";
-import {
-	canBranchEdit,
-	canCancel,
-	canCorrect,
-	canModify,
-	compareReceipt,
-	nextStatusAfterVerify,
-	statusAfterCorrect,
-} from "./verify";
+import { compareReceipt } from "./verify";
 
 const iso = (d: Date | string) => (typeof d === "string" ? d : d.toISOString());
 
@@ -69,7 +67,7 @@ function mapExpense(r: typeof t.expenses.$inferSelect): Expense {
 		receiptFileName: r.receiptFileName,
 		receiptDataUrl: r.receiptDataUrl,
 		ocrConfidence: r.ocrConfidence,
-		ocrRaw: (r.ocrRaw as JsonValue | null) ?? null,
+		ocrCheck: parseOcrCheck(r.ocrRaw),
 		reviewStatus: r.reviewStatus as ReviewStatus,
 		reviewNote: r.reviewNote,
 		modifyCount: r.modifyCount,
@@ -229,15 +227,26 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 		.filter((c) => c.parentId === null && c.active)
 		.map((c) => c.name);
 
-	// No receipt to check against → can't confirm → route to human review.
+	// No receipt to check against → can't confirm → route to human review. Record
+	// a typed "unreadable" check (all nulls / no match) rather than a special blob.
 	if (!exp.receiptDataUrl) {
 		const status = nextStatusAfterVerify(exp.modifyCount, true);
+		const check: OcrCheck = {
+			ocrAmount: null,
+			ocrDate: null,
+			ocrCurrency: null,
+			ocrCategoryGuess: null,
+			categoryFits: 0,
+			overallConfidence: 0,
+			amountMatch: false,
+			dateMatch: false,
+			categoryOk: false,
+			needsCheck: true,
+			checkedAt: new Date().toISOString(),
+		};
 		await db
 			.update(t.expenses)
-			.set({
-				reviewStatus: status,
-				ocrRaw: { error: "no receipt", checkedAt: new Date().toISOString() },
-			})
+			.set({ reviewStatus: status, ocrRaw: check })
 			.where(eq(t.expenses.id, expenseId));
 		return { status };
 	}
@@ -253,15 +262,53 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 		ocr,
 	);
 	const status = nextStatusAfterVerify(exp.modifyCount, cmp.needsCheck);
+	// Assemble the single typed record; the field spread is gone.
+	const check: OcrCheck = {
+		ocrAmount: ocr.ocrAmount,
+		ocrDate: ocr.ocrDate,
+		ocrCurrency: ocr.ocrCurrency,
+		ocrCategoryGuess: ocr.ocrCategoryGuess,
+		categoryFits: ocr.categoryFits,
+		overallConfidence: ocr.overallConfidence,
+		amountMatch: cmp.amountMatch,
+		dateMatch: cmp.dateMatch,
+		categoryOk: cmp.categoryOk,
+		needsCheck: cmp.needsCheck,
+		checkedAt: new Date().toISOString(),
+	};
 	await db
 		.update(t.expenses)
 		.set({
 			reviewStatus: status,
 			ocrConfidence: ocr.overallConfidence,
-			ocrRaw: { ...ocr, ...cmp, checkedAt: new Date().toISOString() },
+			ocrRaw: check,
 		})
 		.where(eq(t.expenses.id, expenseId));
 	return { status };
+}
+
+// One choke point for every human review transition: ask the lifecycle whether
+// the move is legal (throwing its reason if not), then persist the resulting
+// status plus any extra column changes and the modify-count bump it dictates.
+async function applyReviewAction(
+	exp: typeof t.expenses.$inferSelect,
+	action: ReviewAction,
+	actor: Actor,
+	extra: Partial<typeof t.expenses.$inferInsert> = {},
+) {
+	const res = applyAction(exp.reviewStatus as ReviewStatus, action, actor);
+	if ("rejected" in res) throw new Error(res.rejected);
+	await db
+		.update(t.expenses)
+		.set({
+			reviewStatus: res.next,
+			...(res.bumpModifyCount
+				? { modifyCount: (exp.modifyCount ?? 0) + 1 }
+				: {}),
+			...extra,
+		})
+		.where(eq(t.expenses.id, exp.id));
+	return res.next;
 }
 
 /** HQ rejects a flagged transaction. Retained (audit trail) but excluded from
@@ -273,13 +320,7 @@ export async function cancelExpense(
 ) {
 	assertHq(ctx);
 	const exp = await loadExpense(expenseId);
-	if (!canCancel(exp.reviewStatus as ReviewStatus)) {
-		throw new Error(`Cannot cancel from status "${exp.reviewStatus}"`);
-	}
-	await db
-		.update(t.expenses)
-		.set({ reviewStatus: "cancelled", reviewNote: note })
-		.where(eq(t.expenses.id, expenseId));
+	await applyReviewAction(exp, "cancel", "hq_admin", { reviewNote: note });
 }
 
 /** HQ returns a flagged transaction to the branch to correct. */
@@ -290,17 +331,7 @@ export async function requestModify(
 ) {
 	assertHq(ctx);
 	const exp = await loadExpense(expenseId);
-	if (!canModify(exp.reviewStatus as ReviewStatus)) {
-		throw new Error(`Cannot modify from status "${exp.reviewStatus}"`);
-	}
-	await db
-		.update(t.expenses)
-		.set({
-			reviewStatus: "modify_requested",
-			reviewNote: note,
-			modifyCount: (exp.modifyCount ?? 0) + 1,
-		})
-		.where(eq(t.expenses.id, expenseId));
+	await applyReviewAction(exp, "modify", "hq_admin", { reviewNote: note });
 }
 
 /** HQ approves a flagged transaction. After a modify round this confirms the
@@ -309,19 +340,12 @@ export async function requestModify(
 export async function confirmModification(ctx: AuthCtx, expenseId: string) {
 	assertHq(ctx);
 	const exp = await loadExpense(expenseId);
-	const status = exp.reviewStatus as ReviewStatus;
-	if (!canCorrect(status)) {
-		throw new Error(`Cannot confirm from status "${exp.reviewStatus}"`);
-	}
-	await db
-		.update(t.expenses)
-		.set({ reviewStatus: statusAfterCorrect(status) })
-		.where(eq(t.expenses.id, expenseId));
+	await applyReviewAction(exp, "correct", "hq_admin");
 }
 
 /** The owning branch corrects a returned transaction (typed fields only). The
- *  receipt image stays fixed. Resets to `checking` so it re-verifies; the caller
- *  then triggers verifyExpense (which routes it to after_modify_check). */
+ *  receipt image stays fixed. The `edit` transition resets it to `checking` so
+ *  it re-verifies; the caller then triggers verifyExpense (→ after_modify_check). */
 export async function updateExpenseFields(
 	ctx: AuthCtx,
 	expenseId: string,
@@ -337,23 +361,16 @@ export async function updateExpenseFields(
 	if (ctx.role !== "branch_user" || ctx.branchId !== exp.branchId) {
 		throw new Error("Only the owning branch can edit this expense");
 	}
-	if (!canBranchEdit(exp.reviewStatus as ReviewStatus)) {
-		throw new Error("Only a returned (modify_requested) expense can be edited");
-	}
 	if (!(input.localAmount > 0))
 		throw new Error("Amount must be greater than 0");
-	await db
-		.update(t.expenses)
-		.set({
-			localAmount: input.localAmount,
-			usdAmount: input.localAmount * exp.exchangeRateToUsd,
-			expenseDate: input.expenseDate,
-			categoryId: input.categoryId,
-			otherSubcategoryId: input.otherSubcategoryId,
-			description: input.description,
-			reviewStatus: "checking",
-		})
-		.where(eq(t.expenses.id, expenseId));
+	await applyReviewAction(exp, "edit", "branch_user", {
+		localAmount: input.localAmount,
+		usdAmount: input.localAmount * exp.exchangeRateToUsd,
+		expenseDate: input.expenseDate,
+		categoryId: input.categoryId,
+		otherSubcategoryId: input.otherSubcategoryId,
+		description: input.description,
+	});
 }
 
 export async function createFundingPlan(

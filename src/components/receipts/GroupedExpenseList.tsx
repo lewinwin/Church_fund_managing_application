@@ -8,23 +8,9 @@ import { useMemo, useState } from "react";
 import { EmptyState, Select } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
 import { formatAmount } from "#/lib/format";
-import type {
-	Category,
-	CurrencyCode,
-	Expense,
-	ReviewStatus,
-} from "#/lib/types";
+import { needsAction } from "#/lib/reviewLifecycle";
+import type { Category, CurrencyCode, Expense } from "#/lib/types";
 import { ReviewBadge } from "./ReviewBadge";
-
-// Unresolved transactions someone still has to act on. Used to mark the month
-// and day rows so a flagged receipt is findable without expanding everything.
-function needsAttention(status: ReviewStatus): boolean {
-	return (
-		status === "need_check" ||
-		status === "after_modify_check" ||
-		status === "modify_requested"
-	);
-}
 
 function FlagCount({ n }: { n: number }) {
 	if (n === 0) return null;
@@ -258,13 +244,13 @@ function groupByMonth(expenses: Expense[], showUsd: boolean): MonthGroup[] {
 				.map(([day, dl]) => ({
 					day,
 					total: sumAmount(dl, showUsd),
-					flagged: dl.filter((e) => needsAttention(e.reviewStatus)).length,
+					flagged: dl.filter((e) => needsAction(e.reviewStatus)).length,
 					items: [...dl].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
 				}));
 			return {
 				ym,
 				total: sumAmount(list, showUsd),
-				flagged: list.filter((e) => needsAttention(e.reviewStatus)).length,
+				flagged: list.filter((e) => needsAction(e.reviewStatus)).length,
 				days,
 			};
 		});

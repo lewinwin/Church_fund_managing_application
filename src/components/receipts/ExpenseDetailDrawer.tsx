@@ -5,6 +5,7 @@ import { Badge, Button } from "#/components/ui/primitives";
 import { EditExpenseForm } from "./EditExpenseForm";
 import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel } from "#/lib/calc";
+import { availableActions, isResolved } from "#/lib/reviewLifecycle";
 import {
 	formatDate,
 	formatDateTime,
@@ -58,21 +59,19 @@ export function ExpenseDetailDrawer({
 		? users.find((u) => u.id === expense.submittedByUserId)
 		: undefined;
 
-	// HQ reviews (and decides on) a flagged transaction right here, alongside the
-	// receipt — no need to go back to the queue.
+	// HQ reviews (and decides on) a transaction right here, alongside the receipt —
+	// no need to go back to the queue. Shown until the lifecycle says it's resolved.
 	const showReview =
 		user?.role === "hq_admin" &&
 		expense != null &&
-		expense.reviewStatus !== "ok" &&
-		expense.reviewStatus !== "cancelled" &&
-		expense.reviewStatus !== "correct_modification";
+		!isResolved(expense.reviewStatus);
 
 	// The branch's own correction box: HQ's reason plus the resubmit action, so a
 	// returned transaction can be fixed without going back to the list.
 	const showCorrect =
 		user?.role === "branch_user" &&
 		expense != null &&
-		expense.reviewStatus === "modify_requested";
+		availableActions(expense.reviewStatus, "branch_user").includes("edit");
 
 	// While HQ reviews, the decision panel rides alongside the drawer (to its
 	// left) rather than inside it — full width for the comparison, and the

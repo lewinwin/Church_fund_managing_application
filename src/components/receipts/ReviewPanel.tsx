@@ -6,34 +6,9 @@ import { useState } from "react";
 import { Button, Textarea } from "#/components/ui/primitives";
 import { categoryLabel } from "#/lib/calc";
 import { formatDate, formatMoney } from "#/lib/format";
+import { availableActions } from "#/lib/reviewLifecycle";
 import { useStore } from "#/lib/store/store";
-import type { Category, CurrencyCode, Expense, JsonValue } from "#/lib/types";
-
-interface OcrCheck {
-	ocrAmount: number | null;
-	ocrDate: string | null;
-	ocrCategoryGuess: string | null;
-	categoryFits: number;
-	amountMatch: boolean;
-	dateMatch: boolean;
-	categoryOk: boolean;
-}
-
-export function readOcrCheck(raw: JsonValue | null): OcrCheck | null {
-	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-	const o = raw as Record<string, JsonValue>;
-	if (!("amountMatch" in o)) return null;
-	return {
-		ocrAmount: typeof o.ocrAmount === "number" ? o.ocrAmount : null,
-		ocrDate: typeof o.ocrDate === "string" ? o.ocrDate : null,
-		ocrCategoryGuess:
-			typeof o.ocrCategoryGuess === "string" ? o.ocrCategoryGuess : null,
-		categoryFits: typeof o.categoryFits === "number" ? o.categoryFits : 0,
-		amountMatch: o.amountMatch === true,
-		dateMatch: o.dateMatch === true,
-		categoryOk: o.categoryOk === true,
-	};
-}
+import type { Category, CurrencyCode, Expense } from "#/lib/types";
 
 function CompareRow({
 	label,
@@ -77,8 +52,10 @@ export function ReviewPanel({
 	const [busy, setBusy] = useState(false);
 
 	const status = expense.reviewStatus;
-	const check = readOcrCheck(expense.ocrRaw);
-	const isFlagged = status === "need_check" || status === "after_modify_check";
+	const check = expense.ocrCheck;
+	// Which decision buttons to show comes from the lifecycle, so the UI can never
+	// offer an action the server would reject.
+	const actions = availableActions(status, "hq_admin");
 	const catText = categoryLabel(
 		categories,
 		expense.categoryId,
@@ -156,7 +133,7 @@ export function ReviewPanel({
 				</p>
 			)}
 
-			{isFlagged && (
+			{actions.length > 0 && (
 				<div className="mt-3 space-y-2">
 					<Textarea
 						rows={2}
@@ -165,35 +142,41 @@ export function ReviewPanel({
 						onChange={(e) => setNote(e.target.value)}
 					/>
 					<div className="flex flex-wrap gap-2">
-						<Button
-							disabled={busy}
-							onClick={() => run(() => confirmModification(expense.id))}
-							title={
-								status === "after_modify_check"
-									? "Confirm the correction"
-									: "Approve as-is (overrides the OCR flag)"
-							}
-						>
-							<Check size={15} /> Correct
-						</Button>
-						<Button
-							variant="accent"
-							disabled={busy}
-							onClick={() =>
-								run(() => requestModify(expense.id, note.trim() || null))
-							}
-						>
-							Modify
-						</Button>
-						<Button
-							variant="danger"
-							disabled={busy}
-							onClick={() =>
-								run(() => cancelExpense(expense.id, note.trim() || null))
-							}
-						>
-							<X size={15} /> Cancel
-						</Button>
+						{actions.includes("correct") && (
+							<Button
+								disabled={busy}
+								onClick={() => run(() => confirmModification(expense.id))}
+								title={
+									status === "after_modify_check"
+										? "Confirm the correction"
+										: "Approve as-is (overrides the OCR flag)"
+								}
+							>
+								<Check size={15} /> Correct
+							</Button>
+						)}
+						{actions.includes("modify") && (
+							<Button
+								variant="accent"
+								disabled={busy}
+								onClick={() =>
+									run(() => requestModify(expense.id, note.trim() || null))
+								}
+							>
+								Modify
+							</Button>
+						)}
+						{actions.includes("cancel") && (
+							<Button
+								variant="danger"
+								disabled={busy}
+								onClick={() =>
+									run(() => cancelExpense(expense.id, note.trim() || null))
+								}
+							>
+								<X size={15} /> Cancel
+							</Button>
+						)}
 					</div>
 				</div>
 			)}
