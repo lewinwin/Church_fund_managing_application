@@ -107,16 +107,35 @@ Submitter uploads photo / PDF
 
 ## Setup
 
+Requires [Bun](https://bun.sh) and Docker (for local Postgres + Redis).
+
 ```bash
 # 1. Install dependencies
 bun install
 
-# 2. Start development server
+# 2. Configure environment
+cp .env.example .env
+#    then edit .env — set BETTER_AUTH_SECRET (openssl rand -base64 32)
+#    and GEMINI_API_KEY. The DB values already match docker-compose.
+
+# 3. Start backing services (Postgres + Redis)
+docker compose up -d
+
+# 4. Create the schema and seed demo data
+bun run db:push          # apply the Drizzle schema
+bun run db:seed          # seed branches, categories, plans, expenses
+bun run db:seed:users    # create the demo login accounts (password: demo123)
+
+# 5. Start the dev server
 bun run dev
 
-# 3. Run quality checks (Biome)
+# Quality checks (Biome)
 bun run check
 ```
+
+Demo logins: `hq@example.com` (HQ) and `singapore@example.com` / `malawi@example.com` / `southafrica@example.com` / `costarica@example.com` (branches) — all with password `demo123`.
+
+> **Note:** the OCR call to Gemini runs server-side. If your network blocks Google (e.g. some regions), the dev server — running on your machine — will need a VPN to reach it. In production the call originates from the host, not the user's browser.
 
 ---
 
