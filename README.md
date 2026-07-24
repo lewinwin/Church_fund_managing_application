@@ -1,107 +1,117 @@
 # 611 Ministry Funding
 
-> Internal expense tracking tool for church branches — receipt upload with OCR, multi-currency support, and staged funding oversight for headquarters.
+> Internal petty-cash tool for church branches — manual expense entry with **OCR receipt verification**, per-branch multi-currency, and staged funding oversight for headquarters.
 
 ---
 
-## What This Does
+## What it does
 
-Branches upload receipts. HQ sees where the money went.
+Branches record their spending; HQ oversees the money and audits it against the receipts.
 
-**Branches** upload receipt photos or PDFs, confirm OCR-extracted details, categorize expenses, and monitor their remaining fund balance in local currency.
+- **Branch users** enter each transaction manually and upload the receipt. After submission, OCR checks the receipt against what they typed; anything that doesn't match is flagged for HQ. They track their remaining fund balance in their own local currency.
+- **HQ admins** create branches (with a login + currency + exchange rate), manage funding plans, define categories, review flagged transactions, and see every branch's activity.
 
-**Headquarters** manages funding plans per branch, defines expense categories, and views all branch activity consolidated in USD.
+For the full technical map, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
 ## Roles
 
-| Role | Scope | Can Do |
+| Role | Scope | Can do |
 |---|---|---|
-| HQ Admin | All branches | Manage funding plans, define categories, view global USD report |
-| Branch User | Own branch | Upload receipts, confirm OCR, select category, monitor fund balance |
+| **HQ Admin** | All branches | Create branches + login accounts, set funding plans & fund releases, define categories, review/cancel/return flagged transactions |
+| **Branch User** | Own branch | Submit receipts, correct returned transactions, change own password, monitor fund balance |
 
-Each branch has one shared account (Branch User).
+Each branch has one shared Branch User account. Isolation is enforced in application code (`branchScope`) — a branch user can never read another branch's data.
 
 ---
 
-## Branches & Currencies
+## Branches & currencies
+
+Seed branches:
 
 | Branch | Currency |
 |---|---|
-| South Africa | ZAR |
-| Malawi | MWK |
 | Singapore | SGD |
+| Malawi | MWK |
+| South Africa | ZAR |
 | Costa Rica | CRC |
 
-HQ views all figures converted to USD. Branches view their own local currency.
+HQ can create **new branches with any currency at runtime** (e.g. VND, THB) by entering a fixed exchange rate. Amounts are stored in **USD** internally (snapshotted at entry time, never recalculated); the UI shows each branch's **local currency**, and HQ Reports can also total in USD for cross-branch comparison.
 
 ---
 
-## Funding Plan
+## Funding plans
 
-Each branch has one active funding plan at a time. HQ sets a total target and releases funds in stages based on spending progress.
+Each branch has one active funding plan. HQ sets a target and records fund releases (top-ups) in stages as the branch spends.
 
 ```
-Funding Plan (per branch)
- ├─ Total target:    $100,000 USD
- ├─ Released so far:  $20,000 USD  (Stage 1)
- ├─ Spent so far:     $12,300 USD  (converted from local currency)
- └─ Remaining:         $7,700 USD  ← HQ monitors this to trigger next release
+Funding plan (per branch)
+ ├─ Target           (HQ can "Add" to it without creating a new plan)
+ ├─ Released so far  (sum of recorded fund releases)
+ ├─ Spent so far     (fundable expenses — cancelled ones excluded)
+ └─ Remaining        ← HQ monitors this to decide the next release
 ```
 
-HQ manually inputs each fund release into the system.
+Fund releases and targets are entered in the branch's local currency.
 
 ---
 
-## Expense Categories
+## Expense categories
 
-Defined by HQ, shared across all branches. Two-level structure — only the **"Other"** category has sub-categories.
+Defined by HQ, shared across branches. Two-level — only **"Other"** carries sub-categories:
 
 ```
-Categories
- ├─ Meals & Hospitality
- ├─ Transportation
- ├─ Stationery & Supplies
- ├─ Other
- │    ├─ Venue Rental
- │    ├─ Equipment Repair
- │    └─ (more sub-categories as needed)
- └─ ...
+Meals & Hospitality · Transportation · Electricity Charges · … · Other ─┬─ Venue Rental
+                                                                        ├─ Equipment Repair
+                                                                        └─ …
 ```
 
-When a submitter selects "Other", a second dropdown appears for the sub-category.
+Selecting "Other" reveals a sub-category dropdown.
 
 ---
 
-## Receipt Flow
+## OCR receipt verification
+
+OCR is a **post-submission auditor**, not a data-entry helper.
 
 ```
-Submitter uploads photo / PDF
-  → OCR extracts amount, date, merchant
-  → Submitter reviews and corrects if needed
-  → Submitter selects category (+ sub-category if "Other")
-  → Receipt visible to Branch Leader
-  → Receipt visible to HQ (amount converted to USD)
+Branch types the details + uploads the receipt   →   saved as "Checking"
+        │
+        ▼  (background) OCR reads the receipt and compares amount / date / category
+   ┌────────────┬──────────────────────────────────────────────┐
+   │  matches   │  mismatch or low confidence                   │
+   ▼            ▼                                                │
+ shows normally   flagged "Need to Check" for HQ                │
+                    │                                           │
+                    ▼  HQ decides (its call overrides OCR)      │
+        ┌───────────┼─────────────────────┐                    │
+     Cancel      Modify                 Correct                 │
+   (excluded    (back to branch →      (approve as-is)          │
+    from        correct → re-check →                            │
+    balance)    HQ confirms)                                    │
 ```
+
+OCR only ever **flags**; every Cancel / Modify / Correct is a human HQ decision. Cancelled transactions are retained (audit trail) but excluded from balances. The whole state machine lives in one place (`src/lib/reviewLifecycle.ts`).
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer | Choice |
 |---|---|
-| Framework | TanStack Start |
-| Auth | Better Auth + organization plugin |
-| State / Query | TanStack Query |
-| Router | TanStack Router |
-| Form / Validation | TanStack Form + Zod |
-| UI / Styling | Tailwind CSS v4 + shadcn/ui |
-| Database | PostgreSQL (Supabase / Neon) + Drizzle ORM |
-| Deployment | Coolify |
-| Formatting | Biome |
-| Pre-commit | Husky + lint-staged |
-| Testing | `bun test` (unit/integration) + Playwright (E2E) |
+| Framework | **TanStack Start** (React 19 + Nitro + Vite) |
+| Routing | TanStack Router (file-based) |
+| Auth | **Better Auth** (email/password, hashed; `role` + `branchId` fields) |
+| Data | Server functions (`createServerFn`) — no separate API layer |
+| Database | **PostgreSQL** + **Drizzle ORM** (postgres.js driver) |
+| OCR | **Google Gemini** (server-side; key never reaches the browser) |
+| UI | Tailwind CSS + lucide-react icons + custom primitives |
+| Testing | **Vitest** (+ Testing Library) |
+| Format / lint | **Biome** (tabs) |
+| Deployment | Vercel |
+
+State is provided by two React contexts — `AuthProvider` and a custom `StoreProvider` that loads data via server functions and refetches after each mutation.
 
 ---
 
@@ -127,60 +137,31 @@ bun run db:seed          # seed branches, categories, plans, expenses
 bun run db:seed:users    # create the demo login accounts (password: demo123)
 
 # 5. Start the dev server
-bun run dev
-
-# Quality checks (Biome)
-bun run check
+bun run dev              # http://localhost:3000
 ```
 
-Demo logins: `hq@example.com` (HQ) and `singapore@example.com` / `malawi@example.com` / `southafrica@example.com` / `costarica@example.com` (branches) — all with password `demo123`.
+Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` · `bun run build`.
 
-> **Note:** the OCR call to Gemini runs server-side. If your network blocks Google (e.g. some regions), the dev server — running on your machine — will need a VPN to reach it. In production the call originates from the host, not the user's browser.
+**Demo logins** (all password `demo123`): `hq@example.com` (HQ) · `singapore@example.com` · `malawi@example.com` · `southafrica@example.com` · `costarica@example.com` (branches).
 
----
-
-## Week 1 Status — UI-First Prototype
-
-Week 1 ships a clickable, role-aware **UI prototype running entirely on mock data** (seed JSON → `localStorage`). No real Better Auth, Supabase, OCR, or exchange-rate APIs yet — those land W2–W3. See [`../WEEK1_PLAN.md`](../WEEK1_PLAN.md) for the full plan.
-
-**Demo accounts** (all password `demo123`):
-
-| Email | Role |
-|---|---|
-| `hq@example.com` | HQ Admin |
-| `singapore@example.com` | Branch User — Singapore |
-| `malawi@example.com` | Branch User — Malawi |
-| `southafrica@example.com` | Branch User — South Africa |
-| `costarica@example.com` | Branch User — Costa Rica |
-
-All data lives in your browser. Use **Reset demo data** (Settings) to restore seed state.
+> **Note:** the Gemini OCR call runs server-side. If your network blocks Google, the dev server — running on your machine — needs a VPN to reach it. In production the call originates from the host, not the user's browser.
 
 ---
 
-## Roadmap
+## Project standards
 
-| Week | Phase | Deliverables |
-|---|---|---|
-| W1 | Requirements & Design | UI prototype + requirements + mockups |
-| W2 | Foundation & Auth | Project setup, Better Auth, RLS, role setup |
-| W3 | OCR Integration | OCR API + receipt upload pipeline |
-| W4 | Core Features | Expense entry, category selector, fund balance view |
-| W5 | HQ Dashboard | USD consolidation, funding plan management |
-| W6 | Testing & Deploy | Unit/E2E tests, Coolify setup, UAT |
+- **Branch isolation** — every branch-scoped query passes through `branchScope` (`src/lib/server/scope.ts`), a pure, unit-tested gate. There is no DB RLS backstop, so a forgotten `branchScope` is a leak.
+- **Money math** — only via the branch ledger (`src/lib/ledger.ts`); never sum expenses inline. Cancelled transactions are excluded there. Historical USD snapshots are never recalculated.
+- **Review transitions** — only via `src/lib/reviewLifecycle.ts`; the UI asks it which actions are available so it can't offer a move the server would reject.
+- **Secrets** — never in client code. `GEMINI_API_KEY` and DB URLs are server-only; `.env` is gitignored (see `.env.example`).
+- **Type safety** — TypeScript end to end; `tsc --noEmit` must stay clean.
 
 ---
 
-## Project Standards
+## Two builds
 
-**Type safety** — End-to-end via Zod + TypeScript. No `any`.
-
-**Data isolation** — Every query scoped by `organization_id`. Enforced at RLS layer.
-
-**Currency handling** — Store all amounts in original local currency + USD equivalent at time of entry. Never recalculate historical records when exchange rates change.
-
-**Data security** — No secrets in client-side code. Server Actions only for privileged operations.
-
-**Export** — Receipt data and reports designed for CSV/Excel/PDF export.
+- **`main` / `Win-branch`** — pure PostgreSQL; receipt images stored base64 in the DB. *(This README describes this build.)*
+- **`backend-supabase-included`** — Supabase Postgres + a private Storage bucket for receipt images (adds `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
 
 ---
 
