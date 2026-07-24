@@ -11,10 +11,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "db:push": "drizzle-kit push",
-    "db:seed": "bun scripts/seed.ts",
-    "db:seed:users": "bun scripts/seed-users.ts",
-    "db:studio": "drizzle-kit studio",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check"

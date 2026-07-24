@@ -1,4 +1,11 @@
-# 611 Ministry Funding
+# 611 Ministry Funding — UI demo
+
+> ⚠️ **This is the UI-only branch.** It runs entirely on **in-memory mock data** — no database, no auth server, no OCR key, no environment variables. It exists to show the current interface (including every OCR-review state) without a backend. For the full app see the `main` / `Win-branch` build.
+>
+> ```bash
+> bun install && bun run dev      # → http://localhost:3000
+> ```
+> Log in with any demo account below (any password). Data resets on refresh.
 
 > Internal petty-cash tool for church branches — manual expense entry with **OCR receipt verification**, per-branch multi-currency, and staged funding oversight for headquarters.
 
@@ -115,44 +122,35 @@ State is provided by two React contexts — `AuthProvider` and a custom `StorePr
 
 ---
 
-## Setup
+## Setup (UI-only)
 
-Requires [Bun](https://bun.sh) and Docker (for local Postgres + Redis).
+Requires only [Bun](https://bun.sh). No database, no `.env`, no Docker.
 
 ```bash
-# 1. Install dependencies
 bun install
-
-# 2. Configure environment
-cp .env.example .env
-#    then edit .env — set BETTER_AUTH_SECRET (openssl rand -base64 32)
-#    and GEMINI_API_KEY. The DB values already match docker-compose.
-
-# 3. Start backing services (Postgres + Redis)
-docker compose up -d
-
-# 4. Create the schema and seed demo data
-bun run db:push          # apply the Drizzle schema
-bun run db:seed          # seed branches, categories, plans, expenses
-bun run db:seed:users    # create the demo login accounts (password: demo123)
-
-# 5. Start the dev server
 bun run dev              # http://localhost:3000
 ```
 
 Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` · `bun run build`.
 
-**Demo logins** (all password `demo123`): `hq@example.com` (HQ) · `singapore@example.com` · `malawi@example.com` · `southafrica@example.com` · `costarica@example.com` (branches).
+**Demo logins** (this branch accepts any password): `hq@example.com` (HQ) · `singapore@example.com` · `malawi@example.com` · `southafrica@example.com` · `costarica@example.com` (branches).
 
-> **Note:** the Gemini OCR call runs server-side. If your network blocks Google, the dev server — running on your machine — needs a VPN to reach it. In production the call originates from the host, not the user's browser.
+### What's mocked
+
+- **Auth** — matched against the demo users above; the session is remembered in `localStorage`.
+- **Data** — a fixed in-memory dataset (`src/lib/mock/mockData.ts`) that includes at least one expense in **every review state** (OK, Need-to-Check with amount/date/category mismatches, Returned, After-Modify, Cancelled, Corrected) so the review UI is fully visible.
+- **OCR** — `verifyExpense` simulates a matching read (new submissions resolve to OK; the flagged states are pre-seeded).
+
+State lives in memory and **resets on page refresh**. The pure UI logic (currency, ledger, review lifecycle) is the real code, unchanged.
 
 ---
 
 ## Project standards
 
-- **Branch isolation** — every branch-scoped query passes through `branchScope` (`src/lib/server/scope.ts`), a pure, unit-tested gate. There is no DB RLS backstop, so a forgotten `branchScope` is a leak.
 - **Money math** — only via the branch ledger (`src/lib/ledger.ts`); never sum expenses inline. Cancelled transactions are excluded there. Historical USD snapshots are never recalculated.
-- **Review transitions** — only via `src/lib/reviewLifecycle.ts`; the UI asks it which actions are available so it can't offer a move the server would reject.
+- **Review transitions** — only via `src/lib/reviewLifecycle.ts`; the UI asks it which actions are available so it can't offer an illegal move.
+
+*(In the full build, branch isolation is additionally enforced server-side by `branchScope`. This UI-only branch has no server, so the mock store holds all branches' data and the pages filter by the signed-in branch.)*
 - **Secrets** — never in client code. `GEMINI_API_KEY` and DB URLs are server-only; `.env` is gitignored (see `.env.example`).
 - **Type safety** — TypeScript end to end; `tsc --noEmit` must stay clean.
 

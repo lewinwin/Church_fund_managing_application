@@ -1,37 +1,19 @@
-// AppData store, now backed by Postgres via server functions. Loads the
-// caller's allowed data on login and refetches after each mutation. The
-// useStore() shape is unchanged from W1, so components barely change — they
-// just observe async loading (gated by `hydrated`).
+// UI-only mock store. Holds the demo AppData in memory and mutates it locally —
+// no server functions, no database. The useStore() shape is identical to the
+// real provider, and review transitions reuse the SAME pure reviewLifecycle
+// module, so the UI (and the state machine it drives) behaves exactly as in the
+// real app. State resets on refresh — that's fine for a showcase.
 import {
 	createContext,
 	type ReactNode,
 	useCallback,
 	useContext,
-	useEffect,
 	useMemo,
 	useState,
 } from "react";
-import { useAuth } from "#/lib/auth/auth";
-import {
-	addToPlanTargetFn,
-	bootstrapFn,
-	cancelExpenseFn,
-	changePasswordFn,
-	confirmModificationFn,
-	createBranchFn,
-	createCategoryFn,
-	createFundingPlanFn,
-	createUserFn,
-	recordFundReleaseFn,
-	requestModifyFn,
-	submitExpenseFn,
-	toggleCategoryActiveFn,
-	updateCategoryFn,
-	updateExpenseFieldsFn,
-	updateFundingPlanFn,
-	updateUserFn,
-	verifyExpenseFn,
-} from "#/lib/server/fns";
+import { buildMockData } from "#/lib/mock/mockData";
+import type { OcrCheck } from "#/lib/ocrCheck";
+import { applyAction, nextStatusAfterVerify } from "#/lib/reviewLifecycle";
 import type {
 	AppData,
 	Category,
@@ -42,8 +24,6 @@ import type {
 	User,
 } from "#/lib/types";
 
-// Review fields (reviewStatus/reviewNote/modifyCount) and the OCR check are set
-// server-side, so the client never supplies them when submitting.
 export type NewExpense = Omit<
 	Expense,
 	| "id"
@@ -56,15 +36,6 @@ export type NewExpense = Omit<
 export type NewFundingPlan = Omit<FundingPlan, "id" | "createdAt">;
 export type NewFundRelease = Omit<FundRelease, "id" | "createdAt">;
 
-const EMPTY: AppData = {
-	branches: [],
-	users: [],
-	categories: [],
-	expenses: [],
-	fundingPlans: [],
-	fundReleases: [],
-};
-
 export interface EditExpenseInput {
 	localAmount: number;
 	expenseDate: string;
@@ -76,9 +47,7 @@ export interface EditExpenseInput {
 interface StoreContextValue {
 	data: AppData;
 	hydrated: boolean;
-	/** Submits the expense and returns its new id (so the caller can verify it). */
 	addExpense: (input: NewExpense) => Promise<string>;
-	/** Runs OCR verification and refreshes; used post-submit and for Re-check. */
 	verifyExpense: (expenseId: string) => Promise<void>;
 	cancelExpense: (expenseId: string, note: string | null) => Promise<void>;
 	requestModify: (expenseId: string, note: string | null) => Promise<void>;
@@ -117,212 +86,272 @@ interface StoreContextValue {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
+let counter = 0;
+const id = (prefix: string) => `${prefix}-${Date.now()}-${(counter += 1)}`;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-	const { user, ready: authReady } = useAuth();
-	const [data, setData] = useState<AppData>(EMPTY);
-	const [hydrated, setHydrated] = useState(false);
+	const [data, setData] = useState<AppData>(() => buildMockData());
 
-	const refresh = useCallback(async () => {
-		if (!user) {
-			setData(EMPTY);
-			return;
-		}
-		const next = await bootstrapFn();
-		setData(next ?? EMPTY);
-	}, [user]);
-
-	// Load (or clear) data whenever the authenticated user changes.
-	useEffect(() => {
-		if (!authReady) return;
-		setHydrated(false);
-		refresh().finally(() => setHydrated(true));
-	}, [authReady, refresh]);
+	// Mutate a single expense by id.
+	const patchExpense = useCallback(
+		(expenseId: string, fn: (e: Expense) => Expense) => {
+			setData((d) => ({
+				...d,
+				expenses: d.expenses.map((e) => (e.id === expenseId ? fn(e) : e)),
+			}));
+		},
+		[],
+	);
 
 	const addExpense = useCallback<StoreContextValue["addExpense"]>(
 		async (input) => {
-			const id = await submitExpenseFn({
-				data: {
-					description: input.description,
-					expenseDate: input.expenseDate,
-					localAmount: input.localAmount,
-					localCurrency: input.localCurrency,
-					exchangeRateToUsd: input.exchangeRateToUsd,
-					usdAmount: input.usdAmount,
-					categoryId: input.categoryId,
-					otherSubcategoryId: input.otherSubcategoryId,
-					receiptFileName: input.receiptFileName,
-					receiptDataUrl: input.receiptDataUrl,
-					ocrConfidence: input.ocrConfidence,
-				},
-			});
-			await refresh();
-			return id;
+			const newId = id("exp");
+			const e: Expense = {
+				...input,
+				id: newId,
+				reviewStatus: "checking",
+				reviewNote: null,
+				modifyCount: 0,
+				ocrCheck: null,
+				createdAt: new Date().toISOString(),
+			};
+			setData((d) => ({ ...d, expenses: [e, ...d.expenses] }));
+			return newId;
 		},
-		[refresh],
+		[],
 	);
 
+	// Simulated OCR verification: a matching read (the interesting mismatched
+	// states are pre-seeded). A first pass resolves to `ok`; a re-check after a
+	// modify routes to `after_modify_check`, same as the real lifecycle.
 	const verifyExpense = useCallback<StoreContextValue["verifyExpense"]>(
 		async (expenseId) => {
-			await verifyExpenseFn({ data: { expenseId } });
-			await refresh();
+			patchExpense(expenseId, (e) => {
+				const catName =
+					data.categories.find((c) => c.id === e.categoryId)?.name ?? null;
+				const ocrCheck: OcrCheck = {
+					ocrAmount: e.localAmount,
+					ocrDate: e.expenseDate,
+					ocrCurrency: e.localCurrency,
+					ocrCategoryGuess: catName,
+					categoryFits: 0.92,
+					overallConfidence: 0.9,
+					amountMatch: true,
+					dateMatch: true,
+					categoryOk: true,
+					needsCheck: false,
+					checkedAt: new Date().toISOString(),
+				};
+				return {
+					...e,
+					ocrCheck,
+					ocrConfidence: 0.9,
+					reviewStatus: nextStatusAfterVerify(e.modifyCount, false),
+				};
+			});
 		},
-		[refresh],
+		[patchExpense, data.categories],
+	);
+
+	// The three HQ decisions + the branch edit all go through the pure lifecycle.
+	const decide = useCallback(
+		(
+			expenseId: string,
+			action: "cancel" | "modify" | "correct" | "edit",
+			actor: "hq_admin" | "branch_user",
+			extra: Partial<Expense> = {},
+		) => {
+			patchExpense(expenseId, (e) => {
+				const res = applyAction(e.reviewStatus, action, actor);
+				if ("rejected" in res) return e; // no-op on illegal transition
+				return {
+					...e,
+					...extra,
+					reviewStatus: res.next,
+					modifyCount: res.bumpModifyCount ? e.modifyCount + 1 : e.modifyCount,
+				};
+			});
+		},
+		[patchExpense],
 	);
 
 	const cancelExpense = useCallback<StoreContextValue["cancelExpense"]>(
-		async (expenseId, note) => {
-			await cancelExpenseFn({ data: { expenseId, note } });
-			await refresh();
-		},
-		[refresh],
+		async (expenseId, note) =>
+			decide(expenseId, "cancel", "hq_admin", { reviewNote: note }),
+		[decide],
 	);
-
 	const requestModify = useCallback<StoreContextValue["requestModify"]>(
-		async (expenseId, note) => {
-			await requestModifyFn({ data: { expenseId, note } });
-			await refresh();
-		},
-		[refresh],
+		async (expenseId, note) =>
+			decide(expenseId, "modify", "hq_admin", { reviewNote: note }),
+		[decide],
 	);
-
 	const confirmModification = useCallback<
 		StoreContextValue["confirmModification"]
-	>(
-		async (expenseId) => {
-			await confirmModificationFn({ data: { expenseId } });
-			await refresh();
-		},
-		[refresh],
-	);
+	>(async (expenseId) => decide(expenseId, "correct", "hq_admin"), [decide]);
 
 	const editExpense = useCallback<StoreContextValue["editExpense"]>(
 		async (expenseId, input) => {
-			await updateExpenseFieldsFn({ data: { expenseId, ...input } });
-			await refresh();
+			patchExpense(expenseId, (e) => {
+				const res = applyAction(e.reviewStatus, "edit", "branch_user");
+				if ("rejected" in res) return e;
+				return {
+					...e,
+					localAmount: input.localAmount,
+					usdAmount: round2(input.localAmount * e.exchangeRateToUsd),
+					expenseDate: input.expenseDate,
+					categoryId: input.categoryId,
+					otherSubcategoryId: input.otherSubcategoryId,
+					description: input.description,
+					reviewStatus: res.next,
+				};
+			});
 		},
-		[refresh],
+		[patchExpense],
 	);
 
 	const addFundingPlan = useCallback<StoreContextValue["addFundingPlan"]>(
 		async (input) => {
-			await createFundingPlanFn({ data: input });
-			await refresh();
+			const p: FundingPlan = {
+				...input,
+				id: id("fp"),
+				createdAt: new Date().toISOString(),
+			};
+			setData((d) => ({ ...d, fundingPlans: [...d.fundingPlans, p] }));
 		},
-		[refresh],
+		[],
 	);
-
 	const updateFundingPlan = useCallback<StoreContextValue["updateFundingPlan"]>(
-		async (id, patch) => {
-			await updateFundingPlanFn({
-				data: {
-					id,
-					patch: {
-						totalTargetUsd: patch.totalTargetUsd,
-						description: patch.description,
-						status: patch.status,
-					},
-				},
-			});
-			await refresh();
+		async (planId, patch) => {
+			setData((d) => ({
+				...d,
+				fundingPlans: d.fundingPlans.map((p) =>
+					p.id === planId ? { ...p, ...patch } : p,
+				),
+			}));
 		},
-		[refresh],
+		[],
 	);
-
+	const addToPlanTarget = useCallback<StoreContextValue["addToPlanTarget"]>(
+		async (planId, amountUsd) => {
+			setData((d) => ({
+				...d,
+				fundingPlans: d.fundingPlans.map((p) =>
+					p.id === planId
+						? { ...p, totalTargetUsd: round2(p.totalTargetUsd + amountUsd) }
+						: p,
+				),
+			}));
+		},
+		[],
+	);
 	const addFundRelease = useCallback<StoreContextValue["addFundRelease"]>(
 		async (input) => {
-			await recordFundReleaseFn({
-				data: {
-					fundingPlanId: input.fundingPlanId,
-					branchId: input.branchId,
-					amountUsd: input.amountUsd,
-					releaseDate: input.releaseDate,
-					note: input.note,
-				},
-			});
-			await refresh();
+			const r: FundRelease = {
+				...input,
+				id: id("fr"),
+				createdAt: new Date().toISOString(),
+			};
+			setData((d) => ({ ...d, fundReleases: [...d.fundReleases, r] }));
 		},
-		[refresh],
+		[],
 	);
 
 	const addCategory = useCallback<StoreContextValue["addCategory"]>(
 		async (input) => {
-			await createCategoryFn({ data: input });
-			await refresh();
+			const c: Category = {
+				id: id(input.parentId ? "sub" : "cat"),
+				name: input.name,
+				parentId: input.parentId,
+				active: true,
+				createdAt: new Date().toISOString(),
+			};
+			setData((d) => ({ ...d, categories: [...d.categories, c] }));
 		},
-		[refresh],
+		[],
 	);
-
 	const updateCategory = useCallback<StoreContextValue["updateCategory"]>(
-		async (id, patch) => {
-			await updateCategoryFn({
-				data: { id, patch: { name: patch.name, active: patch.active } },
-			});
-			await refresh();
+		async (catId, patch) => {
+			setData((d) => ({
+				...d,
+				categories: d.categories.map((c) =>
+					c.id === catId ? { ...c, ...patch } : c,
+				),
+			}));
 		},
-		[refresh],
+		[],
 	);
-
 	const toggleCategoryActive = useCallback<
 		StoreContextValue["toggleCategoryActive"]
-	>(
-		async (id) => {
-			await toggleCategoryActiveFn({ data: { id } });
-			await refresh();
-		},
-		[refresh],
-	);
+	>(async (catId) => {
+		setData((d) => ({
+			...d,
+			categories: d.categories.map((c) =>
+				c.id === catId ? { ...c, active: !c.active } : c,
+			),
+		}));
+	}, []);
 
-	const addUser = useCallback<StoreContextValue["addUser"]>(
-		async (input) => {
-			await createUserFn({ data: input });
-			await refresh();
-		},
-		[refresh],
-	);
-
+	const addUser = useCallback<StoreContextValue["addUser"]>(async (input) => {
+		const u: User = {
+			id: id("u"),
+			name: input.name,
+			email: input.email,
+			password: "",
+			role: input.role,
+			branchId: input.role === "hq_admin" ? null : input.branchId,
+			createdAt: new Date().toISOString(),
+		};
+		setData((d) => ({ ...d, users: [...d.users, u] }));
+	}, []);
 	const updateUser = useCallback<StoreContextValue["updateUser"]>(
-		async (id, patch) => {
-			await updateUserFn({
-				data: {
-					id,
-					patch: {
-						name: patch.name,
-						role: patch.role,
-						branchId: patch.branchId,
-					},
-				},
-			});
-			await refresh();
+		async (userId, patch) => {
+			setData((d) => ({
+				...d,
+				users: d.users.map((u) => (u.id === userId ? { ...u, ...patch } : u)),
+			}));
 		},
-		[refresh],
+		[],
 	);
 
 	const addBranch = useCallback<StoreContextValue["addBranch"]>(
 		async (input) => {
-			await createBranchFn({ data: input });
-			await refresh();
+			const branchId = id("br");
+			const branch = {
+				id: branchId,
+				name: input.name,
+				country: input.country,
+				localCurrency: input.currencyCode.toUpperCase(),
+				exchangeRateToUsd: input.exchangeRateToUsd,
+				createdAt: new Date().toISOString(),
+			};
+			const user: User = {
+				id: id("u"),
+				name: input.name,
+				email: input.loginEmail,
+				password: "",
+				role: "branch_user",
+				branchId,
+				createdAt: new Date().toISOString(),
+			};
+			setData((d) => ({
+				...d,
+				branches: [...d.branches, branch],
+				users: [...d.users, user],
+			}));
 		},
-		[refresh],
-	);
-
-	const addToPlanTarget = useCallback<StoreContextValue["addToPlanTarget"]>(
-		async (planId, amountUsd) => {
-			await addToPlanTargetFn({ data: { planId, amountUsd } });
-			await refresh();
-		},
-		[refresh],
+		[],
 	);
 
 	const changePassword = useCallback<StoreContextValue["changePassword"]>(
-		async (currentPassword, newPassword) =>
-			changePasswordFn({ data: { currentPassword, newPassword } }),
+		async () => ({ ok: true }),
 		[],
 	);
 
 	const value = useMemo<StoreContextValue>(
 		() => ({
 			data,
-			hydrated,
+			hydrated: true,
 			addExpense,
 			verifyExpense,
 			cancelExpense,
@@ -343,7 +372,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 		}),
 		[
 			data,
-			hydrated,
 			addExpense,
 			verifyExpense,
 			cancelExpense,

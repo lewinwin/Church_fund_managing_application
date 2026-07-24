@@ -3,7 +3,7 @@ import { Coins, Eye, EyeOff } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Button, Field, Input } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
-import { branchCountFn } from "#/lib/server/fns";
+import { useStore } from "#/lib/store/store";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -22,26 +22,12 @@ function LoginPage() {
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [branchCount, setBranchCount] = useState<number | null>(null);
+	const branchCount = useStore().data.branches.length;
 
 	// Already signed in → skip the form.
 	useEffect(() => {
 		if (ready && user) navigate({ to: "/dashboard" });
 	}, [ready, user, navigate]);
-
-	// Real branch count for the brand panel. Shows "—" until it lands, and stays
-	// "—" if it fails — never a stale hardcoded number.
-	useEffect(() => {
-		let cancelled = false;
-		branchCountFn()
-			.then((n) => {
-				if (!cancelled) setBranchCount(n);
-			})
-			.catch(() => {});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
