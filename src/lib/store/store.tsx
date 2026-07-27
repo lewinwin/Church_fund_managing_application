@@ -24,6 +24,7 @@ import {
 	createUserFn,
 	recordFundReleaseFn,
 	requestModifyFn,
+	resetPasswordFn,
 	submitExpenseFn,
 	toggleCategoryActiveFn,
 	updateCategoryFn,
@@ -100,6 +101,8 @@ interface StoreContextValue {
 		branchId: string | null;
 	}) => Promise<void>;
 	updateUser: (id: string, patch: Partial<User>) => Promise<void>;
+	/** HQ-only: resets a user's password to the default (demo123). */
+	resetUserPassword: (userId: string) => Promise<void>;
 	addBranch: (input: {
 		name: string;
 		country: string;
@@ -305,6 +308,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 		[refresh],
 	);
 
+	const resetUserPassword = useCallback<
+		StoreContextValue["resetUserPassword"]
+	>(async (userId) => {
+		// Password lives in the auth tables, not AppData — nothing to refresh.
+		await resetPasswordFn({ data: { userId } });
+	}, []);
+
 	const addToPlanTarget = useCallback<StoreContextValue["addToPlanTarget"]>(
 		async (planId, amountUsd) => {
 			await addToPlanTargetFn({ data: { planId, amountUsd } });
@@ -337,6 +347,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			toggleCategoryActive,
 			addUser,
 			updateUser,
+			resetUserPassword,
 			addBranch,
 			addToPlanTarget,
 			changePassword,
@@ -358,6 +369,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			toggleCategoryActive,
 			addUser,
 			updateUser,
+			resetUserPassword,
 			addBranch,
 			addToPlanTarget,
 			changePassword,

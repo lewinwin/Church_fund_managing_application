@@ -36,6 +36,9 @@
   --color-positive: #2f9e5b;
   --color-negative: #d5544b;
   --color-warning: #d9a33a;
+  /* Golden yellow for day/period subtotals — deliberately distinct from the
+     amber --color-warning so a total never reads as a warning flag. */
+  --color-amount: #c69214;
 
   --radius-card: 1.25rem;
 
