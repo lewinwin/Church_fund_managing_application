@@ -30,9 +30,10 @@ function FlagCount({ n }: { n: number }) {
 // showUsd to total in USD. Choosing a month shows its days; "All months"
 // lists months collapsed until tapped.
 //
-// Visual hierarchy so subtotals never blur into line items: month/day totals
-// are neutral-dark + bold ("this is a sum"); individual receipts are red
-// ("this is one expense"). Colour alone distinguishes a total from a receipt.
+// Visual hierarchy so subtotals never blur into line items: the month total is
+// neutral-dark + bold, day subtotals are golden-yellow + bold ("this is a sum"),
+// and individual receipts are red ("this is one expense"). Colour alone
+// distinguishes a total from a receipt.
 export function GroupedExpenseList({
 	expenses,
 	categories,
@@ -147,7 +148,7 @@ export function GroupedExpenseList({
 												</span>
 												<FlagCount n={day.flagged} />
 											</span>
-											<span className="shrink-0 text-sm font-bold text-[var(--color-ink)]">
+											<span className="shrink-0 text-sm font-bold text-[var(--color-amount)]">
 												−{fmt(day.total)}
 											</span>
 										</button>

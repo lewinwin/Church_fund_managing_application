@@ -12,6 +12,10 @@ import type { FundingPlanStatus, Role } from "#/lib/types";
 import * as data from "./data";
 import { runReceiptOcr } from "./ocr";
 
+// Shared default for new/reset accounts. Branches sign in with this, then set
+// their own password in Settings → Change password.
+const DEFAULT_PASSWORD = "demo123";
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -234,7 +238,7 @@ export const createUserFn = createServerFn({ method: "POST" })
 		const ctx = await requireAuthCtx();
 		if (ctx.role !== "hq_admin") throw new Error("HQ Admin only");
 		await auth.api.signUpEmail({
-			body: { email: input.email, password: "demo123", name: input.name },
+			body: { email: input.email, password: DEFAULT_PASSWORD, name: input.name },
 		});
 		await db
 			.update(userTable)
@@ -325,4 +329,21 @@ export const changePasswordFn = createServerFn({ method: "POST" })
 				error: "Could not change password. Check your current password.",
 			};
 		}
+	});
+
+// HQ resets another account's password back to the shared default (demo123) —
+// no current password needed, so it works when a branch is locked out. It only
+// rewrites the credential account's hash (the same path Better Auth's own
+// changePassword uses); the user's role, branch, and all their transactions are
+// untouched. The branch then signs in with demo123 and can set a new password
+// in Settings. HQ-only.
+export const resetPasswordFn = createServerFn({ method: "POST" })
+	.validator((d: { userId: string }) => d)
+	.handler(async ({ data: input }) => {
+		const ctx = await requireAuthCtx();
+		if (ctx.role !== "hq_admin") throw new Error("HQ Admin only");
+		const authCtx = await auth.$context;
+		const hashed = await authCtx.password.hash(DEFAULT_PASSWORD);
+		await authCtx.internalAdapter.updatePassword(input.userId, hashed);
+		return { ok: true as const };
 	});

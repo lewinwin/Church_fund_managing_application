@@ -1,13 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, ChevronRight } from "lucide-react";
-import { HqReviewCard } from "#/components/receipts/HqReviewCard";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import {
 	EmptyState,
 	ProgressBar,
 	SectionCard,
 } from "#/components/ui/primitives";
-import { branchById } from "#/lib/calc";
 import { formatAmount, formatPercent } from "#/lib/format";
 import { ledgerFor } from "#/lib/ledger";
 import { availableActions } from "#/lib/reviewLifecycle";
@@ -29,10 +27,20 @@ function BranchesPage() {
 	}));
 
 	// Cross-branch review queue: everything HQ can currently act on (OCR-flagged or
-	// resubmitted after a modify), newest first.
-	const flagged = data.expenses
-		.filter((e) => availableActions(e.reviewStatus, "hq_admin").length > 0)
-		.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+	// resubmitted after a modify).
+	const flagged = data.expenses.filter(
+		(e) => availableActions(e.reviewStatus, "hq_admin").length > 0,
+	);
+
+	// Rolled up to a brief "Branch: N Checks" notification — HQ does the actual
+	// review/decision on the branch detail page, not here. Busiest branch first.
+	const checksByBranch = data.branches
+		.map((b) => ({
+			branch: b,
+			count: flagged.filter((e) => e.branchId === b.id).length,
+		}))
+		.filter((r) => r.count > 0)
+		.sort((a, b) => b.count - a.count);
 
 	const columns: Column<(typeof rows)[number]>[] = [
 		{
@@ -117,19 +125,33 @@ function BranchesPage() {
 						description="Transactions that don't match their receipt will appear here for review."
 					/>
 				) : (
-					<div className="space-y-3">
-						{flagged.map((e) => {
-							const b = branchById(data.branches, e.branchId);
-							return (
-								<HqReviewCard
-									key={e.id}
-									expense={e}
-									categories={data.categories}
-									currency={b?.localCurrency ?? "USD"}
-									branchName={b?.name}
-								/>
-							);
-						})}
+					<div className="divide-y divide-[var(--color-line)]">
+						{checksByBranch.map(({ branch, count }) => (
+							<button
+								key={branch.id}
+								type="button"
+								onClick={() =>
+									navigate({
+										to: "/branches/$branchId",
+										params: { branchId: branch.id },
+									})
+								}
+								className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-3 text-left transition-colors hover:bg-[var(--color-forest-50)]"
+							>
+								<span className="font-medium text-[var(--color-ink)]">
+									{branch.name}
+								</span>
+								<span className="flex items-center gap-2">
+									<span className="rounded-full bg-[#fdf1dc] px-2.5 py-1 text-xs font-semibold text-[var(--color-warning)]">
+										{count} {count === 1 ? "Check" : "Checks"}
+									</span>
+									<ChevronRight
+										size={16}
+										className="text-[var(--color-muted)]"
+									/>
+								</span>
+							</button>
+						))}
 					</div>
 				)}
 			</SectionCard>
