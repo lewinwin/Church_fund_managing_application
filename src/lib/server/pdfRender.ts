@@ -5,7 +5,7 @@
 // same Tesseract path as image receipts.
 import { getDocumentProxy, renderPageAsImage } from "unpdf";
 
-const canvasImport = () => import("@napi-rs/canvas");
+const canvasImport = () => import(/* @vite-ignore */ "@napi-rs/canvas");
 
 // Don't rasterize an unbounded number of pages — a receipt is a handful at most.
 const MAX_PAGES = 10;
