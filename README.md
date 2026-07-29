@@ -105,7 +105,7 @@ OCR only ever **flags**; every Cancel / Modify / Correct is a human HQ decision.
 | Auth | **Better Auth** (email/password, hashed; `role` + `branchId` fields) |
 | Data | Server functions (`createServerFn`) — no separate API layer |
 | Database | **PostgreSQL** + **Drizzle ORM** (postgres.js driver) |
-| OCR | **Tesseract** (image receipts) + **unpdf** (digital-PDF text layer) — local, no API key, no network |
+| OCR | **Tesseract** (images + scanned PDFs) · **unpdf** + **@napi-rs/canvas** (PDF text layer & page rendering) — local, no API key, no network |
 | UI | Tailwind CSS + lucide-react icons + custom primitives |
 | Testing | **Vitest** (+ Testing Library) |
 | Format / lint | **Biome** (tabs) |
@@ -144,7 +144,7 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 
 **Demo logins** (all password `demo123`): `hq@example.com` (HQ) · `singapore@example.com` · `malawi@example.com` · `southafrica@example.com` · `costarica@example.com` (branches).
 
-> **Note:** Receipt reading runs **locally** — no API key, no network. **Image** receipts are OCR'd via Tesseract (bundled English data); **digital PDFs** are read via their text layer (`unpdf`, exact — no OCR). Either way it extracts the **amount and date** and flags mismatches against what the branch typed; **category is judged manually by HQ** (there is no semantic model). **Scanned** PDFs (no text layer) route straight to review. Sanity-check with `bun run ocr:smoke` and `bun run pdf:smoke`.
+> **Note:** Receipt reading runs **locally** — no API key, no network. Three sources feed one pipeline: **image** receipts are OCR'd via Tesseract (bundled English data); **digital PDFs** are read via their exact text layer (`unpdf`); **scanned PDFs** (no text layer) are rasterized page-by-page (`@napi-rs/canvas`) and OCR'd. It extracts the **amount and date** and flags mismatches against what the branch typed; **category is judged manually by HQ** (no semantic model). OCR (images and scanned PDFs) is imperfect, so misreads simply mismatch and route to review — never silently accepted. Sanity-check with `bun run ocr:smoke`, `bun run pdf:smoke`, `bun run pdf:render`.
 
 ---
 
