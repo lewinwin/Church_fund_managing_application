@@ -10,7 +10,6 @@ import { db } from "#/lib/db/client";
 import { user as userTable } from "#/lib/db/schema";
 import type { FundingPlanStatus, Role } from "#/lib/types";
 import * as data from "./data";
-import { runReceiptOcr } from "./ocr";
 
 // Shared default for new/reset accounts. Branches sign in with this, then set
 // their own password in Settings → Change password.
@@ -93,15 +92,6 @@ export const bootstrapFn = createServerFn({ method: "GET" }).handler(
 export const branchCountFn = createServerFn({ method: "GET" }).handler(
 	async () => data.getBranchCount(),
 );
-
-// Receipt OCR (Gemini 2.5 Flash). Runs server-side so the API key stays secret.
-// Any signed-in user may extract; the result only pre-fills their review form.
-export const ocrExtractFn = createServerFn({ method: "POST" })
-	.validator((d: { dataUrl: string }) => d)
-	.handler(async ({ data: input }) => {
-		await requireAuthCtx();
-		return runReceiptOcr(input.dataUrl);
-	});
 
 export const submitExpenseFn = createServerFn({ method: "POST" })
 	.validator((d: data.SubmitExpenseInput) => d)
