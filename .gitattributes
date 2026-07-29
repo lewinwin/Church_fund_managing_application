@@ -1,0 +1,5 @@
+# Binary assets must never get end-of-line conversion — it would corrupt them.
+# The sample PDF's xref offsets and stream length are byte-exact.
+*.pdf binary
+*.traineddata binary
+scripts/fixtures/** binary
