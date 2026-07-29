@@ -11,3 +11,7 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+
+# Tesseract writes a cache copy of traineddata to cwd; ours is bundled in tessdata/
+/eng.traineddata
+/*.traineddata
