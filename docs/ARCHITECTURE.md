@@ -103,7 +103,8 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 | `auth/auth.tsx` | **Client** `AuthProvider` / `useAuth()`. Mirrors the cookie session into React state. `login` is async → `{ ok, error? }`. |
 | `server/scope.ts` | **Branch-isolation gate:** `branchScope(ctx, col)` → Drizzle `WHERE` (undefined for HQ), `canWriteBranch`. Pure + the `AuthCtx` type. Unit-tested (`scope.test.ts`) — no DB. |
 | `server/data.ts` | The data layer: row↔domain mappers, `getBootstrapData(ctx)` (reads gated by `branchScope`), `getBranchCount()` (public), and every mutation. Sensitive fields (branchId, submitter) derive from `ctx`, never the client. Review transitions go through the lifecycle (§7); money is never summed here. |
-| `server/ocr.ts` | **Gemini OCR** (`gemini-flash-latest`; `GEMINI_MODEL` overrides). `runReceiptVerification(dataUrl, ctx)` reads a receipt and reports amount/date/currency + category fit for verification. `runReceiptOcr` (raw extraction) is retained but no longer used by the submit form. Server-only (API key); never throws. |
+| `server/ocr.ts` | **Local Tesseract OCR** — a shared, lazily-created worker with bundled English data (`tessdata/eng.traineddata`; no API key, no network). `runReceiptVerification(dataUrl)` reads the receipt image and, via `receiptParse.ts`, returns `{ocrAmount, ocrDate, …}`. Category is neutralised (`categoryFits = 1`): no semantic model, so HQ judges category; non-image inputs (e.g. PDFs) route to review. Server-only; never throws. |
+| `server/receiptParse.ts` | **Pure receipt-text parsing** — `parseReceiptFields(text)` → `{amount, date, amountLabeled}` from raw OCR text (prefers a labelled total over subtotal/line items; `parseMoney` copes with dot/comma/space conventions; `parseReceiptDate` handles ISO/day-first/month-name). No I/O. Unit-tested (`receiptParse.test.ts`). |
 | `server/verify.ts` | **Pure OCR comparison** — `compareReceipt(entered, ocr)` → `{amountMatch, dateMatch, categoryOk, needsCheck}` (amount/date exact, category by confidence threshold). No DB. |
 | `server/fns.ts` | The RPC API — `createServerFn` wrappers the client calls. Auth: `getSessionFn`/`signInFn`/`signOutFn`. Data: `bootstrapFn`, `branchCountFn`, one fn per mutation, plus the review fns (`verifyExpenseFn`, `cancelExpenseFn`, `requestModifyFn`, `confirmModificationFn`, `updateExpenseFieldsFn`). |
 | `store/store.tsx` | **Client** `StoreProvider` / `useStore()`. Loads `bootstrapFn()` on login; each mutation calls a server fn then `refresh()`. |
@@ -120,7 +121,6 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 | `currency/exchangeRate.ts` | Fixed per-branch FX. `toUsd` / `usdToLocal`; `rateForCurrency(currency, branches)` prefers the owning branch's rate (never a silent 1.0); `availableCurrencies(own, branches)` lists every branch's currency + the built-ins. Tested in `exchangeRate.test.ts`. |
 | `export.ts` | CSV builder + `printReport` (PDF via print). |
 | `id.ts` | ID generation. |
-| `ocr/ocrService.ts` | ⚠ Legacy W1 **mock** OCR stub — superseded by `server/ocr.ts`, no longer imported. |
 
 *(Supabase build only: `server/storage.ts` — receipt images → a private Supabase Storage bucket, with `receiptUrlFn` for signed view URLs. The pure build omits it and keeps base64 in the DB.)*
 
@@ -134,10 +134,12 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 | `scripts/seed-users.ts` | Creates the 5 Better-Auth accounts, hashed (`bun run db:seed:users`). |
 | `scripts/drop-rls.sql` | Disables RLS + drops the old per-branch policies (isolation now lives in `scope.ts`). |
 | `scripts/verify-data.ts` | Proves isolation through the app's own `getBootstrapData()`. |
+| `scripts/ocr-smoke.ts` | Offline OCR sanity check (`bun run ocr:smoke`) — reads `scripts/fixtures/sample-receipt.png` with the bundled Tesseract data. |
+| `tessdata/eng.traineddata` | Bundled Tesseract English data (committed, ~4 MB) — loaded locally by `server/ocr.ts`; no CDN. |
 | `drizzle.config.ts` | drizzle-kit target — uses `ADMIN_DATABASE_URL` (owner role) for `db:push` / `db:studio`. |
 | `vite.config.ts` | TanStack Start + Vite plugins; `#/*` path alias → `src/*`. |
 | `biome.json` | Lint/format — tabs, double quotes. |
-| `.env` (gitignored) | `DATABASE_URL` (app), `ADMIN_DATABASE_URL` (owner), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`); Supabase build also `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. |
+| `.env` (gitignored) | `DATABASE_URL` (app), `ADMIN_DATABASE_URL` (owner), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`; Supabase build also `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. **OCR is local — no key.** |
 
 **Two DB roles:** migrations/seed run as owner `postgres`; the app runs as the limited `petty_app` (row DML, no DDL). Isolation is `branchScope` in app code, not RLS — the limited role is least-privilege only.
 
