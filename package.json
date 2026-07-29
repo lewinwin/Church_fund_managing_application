@@ -13,6 +13,7 @@
     "test": "vitest run",
     "ocr:smoke": "bun scripts/ocr-smoke.ts",
     "pdf:smoke": "bun scripts/pdf-smoke.ts",
+    "pdf:render": "bun scripts/pdf-render-smoke.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "bun scripts/seed.ts",
     "db:seed:users": "bun scripts/seed-users.ts",
@@ -22,6 +23,7 @@
     "check": "biome check"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.3",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router": "latest",
