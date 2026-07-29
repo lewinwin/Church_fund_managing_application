@@ -220,13 +220,6 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 		throw new Error("Not allowed to verify this expense");
 	}
 
-	const cats = await db.select().from(t.expenseCategories);
-	const chosenCategory =
-		cats.find((c) => c.id === exp.categoryId)?.name ?? "Unknown";
-	const categoryNames = cats
-		.filter((c) => c.parentId === null && c.active)
-		.map((c) => c.name);
-
 	// No receipt to check against → can't confirm → route to human review. Record
 	// a typed "unreadable" check (all nulls / no match) rather than a special blob.
 	if (!exp.receiptDataUrl) {
@@ -251,12 +244,7 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 		return { status };
 	}
 
-	const ocr = await runReceiptVerification(exp.receiptDataUrl, {
-		enteredAmount: exp.localAmount,
-		enteredDate: exp.expenseDate,
-		chosenCategory,
-		categoryNames,
-	});
+	const ocr = await runReceiptVerification(exp.receiptDataUrl);
 	const cmp = compareReceipt(
 		{ amount: exp.localAmount, date: exp.expenseDate },
 		ocr,

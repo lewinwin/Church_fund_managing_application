@@ -105,7 +105,7 @@ OCR only ever **flags**; every Cancel / Modify / Correct is a human HQ decision.
 | Auth | **Better Auth** (email/password, hashed; `role` + `branchId` fields) |
 | Data | Server functions (`createServerFn`) — no separate API layer |
 | Database | **PostgreSQL** + **Drizzle ORM** (postgres.js driver) |
-| OCR | **Google Gemini** (server-side; key never reaches the browser) |
+| OCR | **Tesseract** (local; bundled English data, no API key, no network) |
 | UI | Tailwind CSS + lucide-react icons + custom primitives |
 | Testing | **Vitest** (+ Testing Library) |
 | Format / lint | **Biome** (tabs) |
@@ -125,8 +125,8 @@ bun install
 
 # 2. Configure environment
 cp .env.example .env
-#    then edit .env — set BETTER_AUTH_SECRET (openssl rand -base64 32)
-#    and GEMINI_API_KEY. The DB values already match docker-compose.
+#    then edit .env — set BETTER_AUTH_SECRET (openssl rand -base64 32).
+#    The DB values already match docker-compose; OCR needs no key.
 
 # 3. Start backing services (Postgres + Redis)
 docker compose up -d
@@ -144,7 +144,7 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 
 **Demo logins** (all password `demo123`): `hq@example.com` (HQ) · `singapore@example.com` · `malawi@example.com` · `southafrica@example.com` · `costarica@example.com` (branches).
 
-> **Note:** the Gemini OCR call runs server-side. If your network blocks Google, the dev server — running on your machine — needs a VPN to reach it. In production the call originates from the host, not the user's browser.
+> **Note:** Receipt OCR runs **locally** via Tesseract with bundled English data (`tessdata/eng.traineddata`) — no API key and no network. It extracts the **amount and date** and flags mismatches against what the branch typed; **category is judged manually by HQ** (there is no semantic model). PDF receipts aren't OCR'd and route straight to review. Sanity-check the engine with `bun run ocr:smoke`.
 
 ---
 
@@ -153,7 +153,7 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 - **Branch isolation** — every branch-scoped query passes through `branchScope` (`src/lib/server/scope.ts`), a pure, unit-tested gate. There is no DB RLS backstop, so a forgotten `branchScope` is a leak.
 - **Money math** — only via the branch ledger (`src/lib/ledger.ts`); never sum expenses inline. Cancelled transactions are excluded there. Historical USD snapshots are never recalculated.
 - **Review transitions** — only via `src/lib/reviewLifecycle.ts`; the UI asks it which actions are available so it can't offer a move the server would reject.
-- **Secrets** — never in client code. `GEMINI_API_KEY` and DB URLs are server-only; `.env` is gitignored (see `.env.example`).
+- **Secrets** — never in client code. DB URLs and `BETTER_AUTH_SECRET` are server-only; `.env` is gitignored (see `.env.example`).
 - **Type safety** — TypeScript end to end; `tsc --noEmit` must stay clean.
 
 ---
