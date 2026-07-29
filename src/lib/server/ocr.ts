@@ -8,8 +8,11 @@
 //    the receipt and reports amount/date/currency plus how well the receipt fits
 //    the CHOSEN category. The caller (data.compareReceipt) turns this into a
 //    match/needs-check decision. This module never decides an outcome.
+import path from "node:path";
 import process from "node:process";
+import { createWorker } from "tesseract.js";
 import type { CurrencyCode } from "#/lib/types";
+import { parseReceiptFields } from "./receiptParse";
 
 export interface OcrExtraction {
 	amount: number | null;
@@ -145,14 +148,65 @@ export async function runReceiptOcr(dataUrl: string): Promise<OcrExtraction> {
 	};
 }
 
-/** Verify a submitted expense against its receipt. Given the typed amount/date
- *  and the chosen category (plus the full active category list), read the
- *  receipt and report the fields + how well it fits the chosen category. Never
- *  throws — on failure returns a null/zero-confidence result so the caller routes
- *  the transaction to `need_check` (a human then looks). */
+// --- Local OCR (Tesseract) -------------------------------------------------
+// Verification runs entirely on the server via Tesseract with bundled English
+// data — no API key, no network. Tesseract yields raw text; the pure parser
+// (receiptParse.ts) extracts the amount + date. There is no semantic model, so
+// the category check is neutralised (categoryFits = 1) and HQ judges category
+// manually. See ARCHITECTURE.md.
+
+const TESSDATA_PATH = path.resolve(process.cwd(), "tessdata");
+
+type OcrWorker = Awaited<ReturnType<typeof createWorker>>;
+let workerPromise: Promise<OcrWorker> | null = null;
+
+/** One shared, lazily-created worker: loading the 4 MB language data per request
+ *  would be far too slow. Tesseract queues jobs internally, so concurrent
+ *  verifications are serialised safely. */
+function getOcrWorker(): Promise<OcrWorker> {
+	if (!workerPromise) {
+		workerPromise = createWorker("eng", 1, {
+			langPath: TESSDATA_PATH,
+			gzip: false, // bundled traineddata is not gzipped
+			cacheMethod: "none", // already bundled; don't write a cache copy to cwd
+		});
+	}
+	return workerPromise;
+}
+
+/** Decode an image data URL to a Buffer. Returns null for non-images (e.g. a
+ *  PDF receipt) — Tesseract reads images only, so those route to human review. */
+function base64Image(dataUrl: string): Buffer | null {
+	const m = /^data:(image\/[a-z.+-]+);base64,(.*)$/s.exec(dataUrl);
+	if (!m) return null;
+	return Buffer.from(m[2], "base64");
+}
+
+/** Read a receipt image with Tesseract → raw text + 0..1 confidence, or null
+ *  when the input isn't a readable image. Never throws. */
+async function ocrReceiptImage(
+	dataUrl: string,
+): Promise<{ text: string; confidence: number } | null> {
+	const img = base64Image(dataUrl);
+	if (!img) return null;
+	try {
+		const worker = await getOcrWorker();
+		const { data } = await worker.recognize(img);
+		return { text: data.text, confidence: clamp01(data.confidence / 100, 0) };
+	} catch (err) {
+		console.error("Tesseract OCR failed", err);
+		return null;
+	}
+}
+
+/** Verify a submitted expense against its receipt. Reads the receipt locally
+ *  with Tesseract and extracts amount + date; the category is neutralised (no
+ *  semantic model — HQ decides it). `ctx` is unused on this build but kept so the
+ *  caller is unchanged. Never throws — on failure returns a null/zero-confidence
+ *  result so the caller routes the transaction to `need_check`. */
 export async function runReceiptVerification(
 	dataUrl: string,
-	ctx: {
+	_ctx: {
 		enteredAmount: number;
 		enteredDate: string;
 		chosenCategory: string;
@@ -164,38 +218,26 @@ export async function runReceiptVerification(
 		ocrDate: null,
 		ocrCurrency: null,
 		ocrCategoryGuess: null,
-		categoryFits: 0,
+		categoryFits: 1, // no semantic model → category never auto-flags
 		overallConfidence: 0,
 	};
 
-	const prompt = `You are auditing a petty-cash receipt against what a branch employee TYPED. Read the receipt image.
+	const read = await ocrReceiptImage(dataUrl);
+	if (!read) return empty;
 
-The employee categorised this expense as: "${ctx.chosenCategory}".
-The valid expense categories are: ${ctx.categoryNames.map((c) => `"${c}"`).join(", ")}.
+	const fields = parseReceiptFields(read.text);
+	// A fallback (unlabelled) amount is less trustworthy — damp its confidence so
+	// a shaky guess is more likely to be routed to a human.
+	const confidence = fields.amountLabeled
+		? read.confidence
+		: read.confidence * 0.6;
 
-Respond with ONLY a JSON object of exactly this shape:
-{"amount": number|null, "currency": string|null, "date": string|null, "categoryGuess": string|null, "categoryFits": number, "confidence": number}
-
-- amount: the final total actually paid, digits only (no symbol, no thousands separators). Prefer the grand total / amount due.
-- currency: 3-letter ISO code if determinable, else null.
-- date: the purchase date as YYYY-MM-DD, else null.
-- categoryGuess: which of the valid categories best fits what was actually bought, else null.
-- categoryFits: a number 0 to 1 for how well the receipt RELATES to the employee's chosen category "${ctx.chosenCategory}". Judge the real-world MEANING, not the exact wording. Be generous: if the receipt's purchase reasonably belongs to that category — including synonyms, broader/narrower terms, or clearly related concepts — score it HIGH (0.8-1.0). For example a fuel, taxi, parking or car-repair receipt fits "Vehicle Expenses", "Transportation", "Travel" or "Fuel" equally well. Only score LOW (below 0.5) when the receipt is clearly a DIFFERENT kind of expense (e.g. a restaurant bill filed under "Utilities").
-- confidence: a number 0 to 1 for how confident you are you read this receipt reliably.
-
-If the image is not a readable receipt, use nulls, categoryFits 0, and a low confidence.`;
-
-	const p = await geminiJson(dataUrl, prompt);
-	if (!p) return empty;
 	return {
-		ocrAmount: parseAmount(p.amount),
-		ocrDate: normalizeDate(p.date),
-		ocrCurrency: parseCurrency(p.currency),
-		ocrCategoryGuess:
-			typeof p.categoryGuess === "string" && p.categoryGuess.trim()
-				? p.categoryGuess.trim().slice(0, 80)
-				: null,
-		categoryFits: clamp01(p.categoryFits, 0),
-		overallConfidence: clamp01(p.confidence, 0.5),
+		ocrAmount: fields.amount,
+		ocrDate: fields.date,
+		ocrCurrency: null, // not inferred locally; compareReceipt doesn't use it
+		ocrCategoryGuess: null,
+		categoryFits: 1, // HQ decides category manually on this build
+		overallConfidence: fields.amount == null ? 0 : confidence,
 	};
 }
