@@ -1,14 +1,16 @@
-// Receipt OCR via Tesseract — fully local. Server-only (it loads native language
-// data and a WASM engine), so it's imported solely by server functions. No API
-// key and no network: the engine reads the receipt image with bundled English
-// data, and the pure parser (receiptParse.ts) turns that raw text into an amount
-// + date. There is no semantic model, so category is not auto-judged — HQ decides
-// it. The caller (data.ts → compareReceipt) turns the result into a
-// match/needs-check decision; this module never decides an outcome.
+// Receipt reading — fully local, server-only. No API key and no network. Two
+// sources feed one pipeline: image receipts are OCR'd with Tesseract (bundled
+// English data), and digital PDFs have their text layer extracted directly
+// (pdfText.ts — exact, no OCR). Either way the raw text goes to the pure parser
+// (receiptParse.ts) which pulls out amount + date. There is no semantic model, so
+// category is not auto-judged — HQ decides it. The caller (data.ts →
+// compareReceipt) turns the result into a match/needs-check decision; this module
+// never decides an outcome.
 import path from "node:path";
 import process from "node:process";
 import { createWorker } from "tesseract.js";
 import type { CurrencyCode } from "#/lib/types";
+import { extractPdfText } from "./pdfText";
 import { parseReceiptFields } from "./receiptParse";
 
 export interface OcrVerification {
@@ -71,11 +73,27 @@ async function ocrReceiptImage(
 	}
 }
 
-/** Verify a submitted expense against its receipt. Reads the receipt locally with
- *  Tesseract and extracts amount + date; category is neutralised (categoryFits =
- *  1) so it never auto-flags — HQ decides it. Never throws — on failure returns a
- *  null/zero-confidence result so the caller routes the transaction to
- *  `need_check` (a human then looks). */
+/** Get the receipt's text + a 0..1 confidence from whichever source fits the
+ *  input: a digital PDF's text layer (exact), or Tesseract OCR for images.
+ *  Returns null when unreadable — a non-receipt, or a scanned PDF with no text
+ *  layer, both of which should route to human review. */
+async function readReceiptText(
+	dataUrl: string,
+): Promise<{ text: string; confidence: number } | null> {
+	if (/^data:application\/pdf;base64,/.test(dataUrl)) {
+		const text = await extractPdfText(dataUrl);
+		// A digital PDF's text layer is exact → high confidence. No text layer
+		// means a scanned/image-only PDF we can't read here → route to review.
+		return text ? { text, confidence: 0.98 } : null;
+	}
+	return ocrReceiptImage(dataUrl);
+}
+
+/** Verify a submitted expense against its receipt. Reads it locally — a digital
+ *  PDF via its text layer, or an image via Tesseract — and extracts amount +
+ *  date; category is neutralised (categoryFits = 1) so it never auto-flags (HQ
+ *  decides it). Never throws — on failure returns a null/zero-confidence result
+ *  so the caller routes the transaction to `need_check`. */
 export async function runReceiptVerification(
 	dataUrl: string,
 ): Promise<OcrVerification> {
@@ -88,7 +106,7 @@ export async function runReceiptVerification(
 		overallConfidence: 0,
 	};
 
-	const read = await ocrReceiptImage(dataUrl);
+	const read = await readReceiptText(dataUrl);
 	if (!read) return empty;
 
 	const fields = parseReceiptFields(read.text);
