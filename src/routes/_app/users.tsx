@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Pencil, UserPlus } from "lucide-react";
+import { Building2, KeyRound, Pencil, UserPlus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import { Modal } from "#/components/ui/Overlay";
@@ -19,10 +19,11 @@ import type { Role, User } from "#/lib/types";
 export const Route = createFileRoute("/_app/users")({ component: UsersPage });
 
 function UsersPage() {
-	const { data, addUser, updateUser } = useStore();
+	const { data, addUser, updateUser, resetUserPassword } = useStore();
 	const [addOpen, setAddOpen] = useState(false);
 	const [createBranchOpen, setCreateBranchOpen] = useState(false);
 	const [editing, setEditing] = useState<User | null>(null);
+	const [resetting, setResetting] = useState<User | null>(null);
 
 	const branchName = (id: string | null) =>
 		id ? (data.branches.find((b) => b.id === id)?.name ?? "—") : "— (HQ)";
@@ -57,9 +58,18 @@ function UsersPage() {
 			header: "",
 			align: "right",
 			render: (u) => (
-				<Button variant="ghost" onClick={() => setEditing(u)}>
-					<Pencil size={14} /> Edit
-				</Button>
+				<div className="flex items-center justify-end gap-1">
+					<Button
+						variant="ghost"
+						onClick={() => setResetting(u)}
+						title="Reset this account's password to demo123"
+					>
+						<KeyRound size={14} /> Reset password
+					</Button>
+					<Button variant="ghost" onClick={() => setEditing(u)}>
+						<Pencil size={14} /> Edit
+					</Button>
+				</div>
 			),
 		},
 	];
@@ -103,7 +113,96 @@ function UsersPage() {
 					onSave={(id, patch) => updateUser(id, patch)}
 				/>
 			)}
+			{resetting && (
+				<ResetPasswordModal
+					key={resetting.id}
+					user={resetting}
+					onClose={() => setResetting(null)}
+					onConfirm={() => resetUserPassword(resetting.id)}
+				/>
+			)}
 		</div>
+	);
+}
+
+function ResetPasswordModal({
+	user,
+	onClose,
+	onConfirm,
+}: {
+	user: User;
+	onClose: () => void;
+	onConfirm: () => Promise<void>;
+}) {
+	const [busy, setBusy] = useState(false);
+	const [done, setDone] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	async function handleConfirm() {
+		setBusy(true);
+		setError(null);
+		try {
+			await onConfirm();
+			setDone(true);
+		} catch {
+			setError("Could not reset the password. Please try again.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Modal
+			open
+			onClose={onClose}
+			title="Reset password"
+			footer={
+				done ? (
+					<Button onClick={onClose}>Done</Button>
+				) : (
+					<>
+						<Button variant="ghost" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button variant="danger" onClick={handleConfirm} disabled={busy}>
+							{busy ? "Resetting…" : "Reset to demo123"}
+						</Button>
+					</>
+				)
+			}
+		>
+			{done ? (
+				<div className="space-y-2">
+					<p className="text-sm">
+						<span className="font-semibold">{user.name}</span>'s password is now{" "}
+						<span className="font-mono">demo123</span>.
+					</p>
+					<p className="text-sm text-[var(--color-muted)]">
+						Share it with the branch. They sign in with{" "}
+						<span className="font-mono">demo123</span>, then set a new one in
+						Settings → Change password. All their data is unchanged.
+					</p>
+				</div>
+			) : (
+				<div className="space-y-2">
+					<p className="text-sm">
+						Reset the password for{" "}
+						<span className="font-semibold">{user.name}</span> (
+						<span className="font-mono">{user.email}</span>) back to the default{" "}
+						<span className="font-mono">demo123</span>?
+					</p>
+					<p className="text-sm text-[var(--color-muted)]">
+						Use this when a branch is locked out. Only the password changes —
+						their transactions, role, and branch stay intact.
+					</p>
+					{error && (
+						<p className="rounded-lg bg-[#fdecea] px-3 py-2 text-sm text-[var(--color-negative)]">
+							{error}
+						</p>
+					)}
+				</div>
+			)}
+		</Modal>
 	);
 }
 

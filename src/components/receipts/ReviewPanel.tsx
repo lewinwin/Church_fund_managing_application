@@ -22,16 +22,22 @@ function CompareRow({
 	ok: boolean;
 }) {
 	return (
-		<div className="grid grid-cols-[76px_1fr_1fr_auto] items-center gap-2 py-1 text-sm">
+		<div className="grid grid-cols-[52px_1fr_1fr_16px] items-start gap-x-2 gap-y-0.5 py-1.5 text-[13px] leading-tight sm:text-sm">
 			<span className="text-[var(--color-muted)]">{label}</span>
-			<span className="font-medium">{entered}</span>
-			<span className={ok ? "" : "font-medium text-[var(--color-negative)]"}>
+			<span className="min-w-0 break-words font-medium tabular-nums">
+				{entered}
+			</span>
+			<span
+				className={`min-w-0 break-words tabular-nums ${
+					ok ? "" : "font-medium text-[var(--color-negative)]"
+				}`}
+			>
 				{read}
 			</span>
 			{ok ? (
-				<Check size={15} className="text-[var(--color-positive)]" />
+				<Check size={15} className="mt-0.5 text-[var(--color-positive)]" />
 			) : (
-				<X size={15} className="text-[var(--color-negative)]" />
+				<X size={15} className="mt-0.5 text-[var(--color-negative)]" />
 			)}
 		</div>
 	);
@@ -41,10 +47,15 @@ export function ReviewPanel({
 	expense,
 	categories,
 	currency,
+	onResolved,
 }: {
 	expense: Expense;
 	categories: Category[];
 	currency: CurrencyCode;
+	/** Called after a decision (Correct/Modify/Cancel) succeeds — NOT after
+	 *  Re-check — so the container can close. HQ is done with the transaction
+	 *  once a decision lands, and the parent's `selected` snapshot is stale. */
+	onResolved?: () => void;
 }) {
 	const { cancelExpense, requestModify, confirmModification, verifyExpense } =
 		useStore();
@@ -62,10 +73,13 @@ export function ReviewPanel({
 		expense.otherSubcategoryId,
 	);
 
-	async function run(fn: () => Promise<void>) {
+	// `resolve` marks a decision action: on success we notify the container to
+	// close. Re-check passes false so the panel stays open for the next look.
+	async function run(fn: () => Promise<void>, resolve = false) {
 		setBusy(true);
 		try {
 			await fn();
+			if (resolve) onResolved?.();
 		} finally {
 			setBusy(false);
 		}
@@ -87,7 +101,7 @@ export function ReviewPanel({
 
 			{check ? (
 				<div className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2">
-					<div className="grid grid-cols-[76px_1fr_1fr_auto] gap-2 pb-1 text-xs font-semibold text-[var(--color-muted)]">
+					<div className="grid grid-cols-[52px_1fr_1fr_16px] gap-x-2 pb-1 text-xs font-semibold leading-tight text-[var(--color-muted)]">
 						<span />
 						<span>Entered</span>
 						<span>Receipt (OCR)</span>
@@ -145,7 +159,7 @@ export function ReviewPanel({
 						{actions.includes("correct") && (
 							<Button
 								disabled={busy}
-								onClick={() => run(() => confirmModification(expense.id))}
+								onClick={() => run(() => confirmModification(expense.id), true)}
 								title={
 									status === "after_modify_check"
 										? "Confirm the correction"
@@ -160,7 +174,7 @@ export function ReviewPanel({
 								variant="accent"
 								disabled={busy}
 								onClick={() =>
-									run(() => requestModify(expense.id, note.trim() || null))
+									run(() => requestModify(expense.id, note.trim() || null), true)
 								}
 							>
 								Modify
@@ -171,7 +185,7 @@ export function ReviewPanel({
 								variant="danger"
 								disabled={busy}
 								onClick={() =>
-									run(() => cancelExpense(expense.id, note.trim() || null))
+									run(() => cancelExpense(expense.id, note.trim() || null), true)
 								}
 							>
 								<X size={15} /> Cancel

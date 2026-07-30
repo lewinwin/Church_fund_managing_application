@@ -81,6 +81,10 @@ export function ExpenseDetailDrawer({
 			expense={expense}
 			categories={categories}
 			currency={expense.localCurrency}
+			// HQ is done once a decision lands — close the drawer. (The parent's
+			// `selected` snapshot is stale, so the panel can't rely on the status
+			// flipping to hide itself.)
+			onResolved={onClose}
 		/>
 	) : null;
 

@@ -69,6 +69,9 @@ interface StoreContextValue {
 		branchId: string | null;
 	}) => Promise<void>;
 	updateUser: (id: string, patch: Partial<User>) => Promise<void>;
+	/** HQ-only in the real app; on this demo build passwords aren't stored, so
+	 *  this is a no-op that keeps the UI (Users page reset action) working. */
+	resetUserPassword: (userId: string) => Promise<void>;
 	addBranch: (input: {
 		name: string;
 		country: string;
@@ -314,6 +317,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 		[],
 	);
 
+	const resetUserPassword = useCallback<
+		StoreContextValue["resetUserPassword"]
+	>(async () => {
+		// Passwords aren't stored on this demo build — nothing to change.
+	}, []);
+
 	const addBranch = useCallback<StoreContextValue["addBranch"]>(
 		async (input) => {
 			const branchId = id("br");
@@ -366,6 +375,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			toggleCategoryActive,
 			addUser,
 			updateUser,
+			resetUserPassword,
 			addBranch,
 			addToPlanTarget,
 			changePassword,
@@ -386,6 +396,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 			toggleCategoryActive,
 			addUser,
 			updateUser,
+			resetUserPassword,
 			addBranch,
 			addToPlanTarget,
 			changePassword,
