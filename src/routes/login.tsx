@@ -106,7 +106,10 @@ function LoginPage() {
 					</div>
 					<div>
 						<p className="text-2xl font-bold text-[var(--color-lime-300)]">
-							OCR
+							OCR{" "}
+							<span className="align-middle text-sm font-semibold text-[var(--color-lime-400)]">
+								· Tesseract
+							</span>
 						</p>
 						<p className="text-xs text-[var(--color-forest-100)]">
 							Receipt check
