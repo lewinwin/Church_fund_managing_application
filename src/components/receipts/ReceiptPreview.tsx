@@ -1,8 +1,8 @@
 import { FileText, ImageOff, Maximize2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Renders the uploaded receipt. Images show inline (with a click-to-zoom
-// lightbox — receipts are often tiny and hard to read); PDFs embed; missing
+// Renders the uploaded receipt. Images and PDFs both show inline with a
+// click-to-zoom lightbox — receipts are often tiny and hard to read; missing
 // files show a placeholder. Data URLs are held client-side only in W1.
 export function ReceiptPreview({
 	dataUrl,
@@ -13,7 +13,7 @@ export function ReceiptPreview({
 	dataUrl: string | null;
 	fileName: string | null;
 	height?: number;
-	/** Show the expand icon + click-to-zoom lightbox on images. */
+	/** Show the expand icon + lightbox on image and PDF previews. */
 	zoomable?: boolean;
 }) {
 	const [zoomed, setZoomed] = useState(false);
@@ -30,26 +30,39 @@ export function ReceiptPreview({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [zoomed]);
 
-	if (dataUrl && isImage) {
+	if (dataUrl && (isImage || isPdf)) {
+		const label = fileName ?? "Receipt";
 		return (
 			<>
 				<div className="group relative">
-					<img
-						src={dataUrl}
-						alt={fileName ?? "Receipt"}
-						onClick={zoomable ? () => setZoomed(true) : undefined}
-						className={`w-full rounded-xl border border-[var(--color-line)] object-contain ${
-							zoomable ? "cursor-zoom-in" : ""
-						}`}
-						style={{ maxHeight: height }}
-					/>
+					{isImage ? (
+						<img
+							src={dataUrl}
+							alt={label}
+							onClick={zoomable ? () => setZoomed(true) : undefined}
+							className={`w-full rounded-xl border border-[var(--color-line)] object-contain ${
+								zoomable ? "cursor-zoom-in" : ""
+							}`}
+							style={{ maxHeight: height }}
+						/>
+					) : (
+						// The browser's PDF viewer swallows clicks, so unlike an image
+						// the preview body can't open the lightbox — the button does.
+						<embed
+							src={dataUrl}
+							type="application/pdf"
+							title={label}
+							className="w-full rounded-xl border border-[var(--color-line)]"
+							style={{ height }}
+						/>
+					)}
 					{zoomable && (
 						<button
 							type="button"
 							onClick={() => setZoomed(true)}
 							aria-label="Expand receipt"
 							title="Expand receipt"
-							className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(18,53,43,0.55)] text-white opacity-80 backdrop-blur transition hover:opacity-100"
+							className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(18,53,43,0.55)] text-white opacity-80 backdrop-blur transition hover:opacity-100"
 						>
 							<Maximize2 size={16} />
 						</button>
@@ -72,26 +85,27 @@ export function ReceiptPreview({
 						>
 							<X size={22} />
 						</button>
-						<img
-							src={dataUrl}
-							alt={fileName ?? "Receipt"}
-							className="relative z-10 max-h-[92vh] rounded-lg object-contain shadow-2xl"
-							style={{ width: "min(92vw, 720px)" }}
-						/>
+						{isImage ? (
+							<img
+								src={dataUrl}
+								alt={label}
+								className="relative z-10 max-h-[92vh] rounded-lg object-contain shadow-2xl"
+								style={{ width: "min(92vw, 720px)" }}
+							/>
+						) : (
+							// An embed can't size to its content the way an image does,
+							// so the expanded PDF gets an explicit near-viewport box.
+							<embed
+								src={dataUrl}
+								type="application/pdf"
+								title={label}
+								className="relative z-10 rounded-lg shadow-2xl"
+								style={{ width: "min(94vw, 900px)", height: "92vh" }}
+							/>
+						)}
 					</div>
 				)}
 			</>
-		);
-	}
-
-	if (dataUrl && isPdf) {
-		return (
-			<embed
-				src={dataUrl}
-				type="application/pdf"
-				className="w-full rounded-xl border border-[var(--color-line)]"
-				style={{ height }}
-			/>
 		);
 	}
 
