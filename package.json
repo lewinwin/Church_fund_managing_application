@@ -11,6 +11,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "ocr:smoke": "bun scripts/ocr-smoke.ts",
+    "pdf:smoke": "bun scripts/pdf-smoke.ts",
+    "pdf:render": "bun scripts/pdf-render-smoke.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "bun scripts/seed.ts",
     "db:seed:users": "bun scripts/seed-users.ts",
@@ -20,6 +23,7 @@
     "check": "biome check"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.3",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
     "@tanstack/react-router": "latest",
@@ -34,7 +38,9 @@
     "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "tesseract.js": "^7.0.0",
+    "unpdf": "^1.8.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
