@@ -107,11 +107,10 @@ interface StoreContextValue {
 		name: string;
 		country: string;
 		currencyCode: string;
-		exchangeRateToUsd: number;
 		loginEmail: string;
 		defaultPassword: string;
 	}) => Promise<void>;
-	addToPlanTarget: (planId: string, amountUsd: number) => Promise<void>;
+	addToPlanTarget: (planId: string, amount: number) => Promise<void>;
 	changePassword: (
 		currentPassword: string,
 		newPassword: string,
@@ -149,8 +148,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 					expenseDate: input.expenseDate,
 					localAmount: input.localAmount,
 					localCurrency: input.localCurrency,
-					exchangeRateToUsd: input.exchangeRateToUsd,
-					usdAmount: input.usdAmount,
 					categoryId: input.categoryId,
 					otherSubcategoryId: input.otherSubcategoryId,
 					receiptFileName: input.receiptFileName,
@@ -220,7 +217,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 				data: {
 					id,
 					patch: {
-						totalTargetUsd: patch.totalTargetUsd,
+						totalTarget: patch.totalTarget,
 						description: patch.description,
 						status: patch.status,
 					},
@@ -237,7 +234,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 				data: {
 					fundingPlanId: input.fundingPlanId,
 					branchId: input.branchId,
-					amountUsd: input.amountUsd,
+					amount: input.amount,
 					releaseDate: input.releaseDate,
 					note: input.note,
 				},
@@ -316,8 +313,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const addToPlanTarget = useCallback<StoreContextValue["addToPlanTarget"]>(
-		async (planId, amountUsd) => {
-			await addToPlanTargetFn({ data: { planId, amountUsd } });
+		async (planId, amount) => {
+			await addToPlanTargetFn({ data: { planId, amount } });
 			await refresh();
 		},
 		[refresh],

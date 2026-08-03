@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { globalLedger, ledgerFor, spentUsdOf } from "./ledger";
+import { ledgerFor, spentOf } from "./ledger";
 import type { AppData, Expense, ReviewStatus } from "./types";
 
 function expense(over: Partial<Expense>): Expense {
@@ -9,10 +9,8 @@ function expense(over: Partial<Expense>): Expense {
 		submittedByUserId: "u",
 		description: "x",
 		expenseDate: "2026-07-01",
-		localAmount: 0,
-		localCurrency: "USD",
-		exchangeRateToUsd: 1,
-		usdAmount: over.usdAmount ?? 0,
+		localAmount: over.localAmount ?? 0,
+		localCurrency: "SGD",
 		categoryId: over.categoryId ?? "c-meals",
 		otherSubcategoryId: null,
 		receiptFileName: null,
@@ -35,7 +33,6 @@ function fixture(): AppData {
 				name: "B1",
 				country: "X",
 				localCurrency: "SGD",
-				exchangeRateToUsd: 0.5, // 1 SGD = $0.50
 				createdAt: "2026-01-01",
 			},
 		],
@@ -57,12 +54,12 @@ function fixture(): AppData {
 			},
 		],
 		expenses: [
-			expense({ id: "e1", usdAmount: 100, categoryId: "c-meals" }),
-			expense({ id: "e2", usdAmount: 50, categoryId: "c-fuel" }),
+			expense({ id: "e1", localAmount: 100, categoryId: "c-meals" }),
+			expense({ id: "e2", localAmount: 50, categoryId: "c-fuel" }),
 			// Cancelled — must be excluded from every money figure.
 			expense({
 				id: "e3",
-				usdAmount: 1000,
+				localAmount: 1000,
 				categoryId: "c-meals",
 				reviewStatus: "cancelled" as ReviewStatus,
 			}),
@@ -71,7 +68,7 @@ function fixture(): AppData {
 			{
 				id: "p1",
 				branchId: "b1",
-				totalTargetUsd: 400,
+				totalTarget: 400,
 				description: "",
 				status: "active",
 				createdAt: "",
@@ -82,7 +79,7 @@ function fixture(): AppData {
 				id: "r1",
 				fundingPlanId: "p1",
 				branchId: "b1",
-				amountUsd: 300,
+				amount: 300,
 				releaseDate: "2026-06-01",
 				note: null,
 				createdByUserId: "u",
@@ -96,43 +93,28 @@ describe("ledgerFor", () => {
 	const led = ledgerFor(fixture(), "b1");
 
 	it("excludes cancelled from spent (100 + 50, not + 1000)", () => {
-		expect(led.spentUsd).toBe(150);
+		expect(led.spent).toBe(150);
 	});
 
-	it("reconciles remaining = released − spent", () => {
-		expect(led.releasedUsd).toBe(300);
-		expect(led.remainingUsd).toBe(150);
-	});
-
-	it("mirrors figures in the branch's local currency", () => {
+	it("reconciles remaining = released − spent, in the branch currency", () => {
 		expect(led.currency).toBe("SGD");
-		expect(led.releasedLocal).toBe(600); // 300 / 0.5
-		expect(led.spentLocal).toBe(300);
-		expect(led.remainingLocal).toBe(300);
-		expect(led.targetLocal).toBe(800); // 400 / 0.5
+		expect(led.released).toBe(300);
+		expect(led.remaining).toBe(150);
+		expect(led.target).toBe(400);
 	});
 
 	it("byCategory excludes cancelled too", () => {
-		const total = led.byCategory.reduce((s, c) => s + c.usd, 0);
+		const total = led.byCategory.reduce((s, c) => s + c.amount, 0);
 		expect(total).toBe(150);
 		// the 1000 cancelled meal must not appear
 		const meals = led.byCategory.find((c) => c.categoryId === "c-meals");
-		expect(meals?.usd).toBe(100);
+		expect(meals?.amount).toBe(100);
 	});
 });
 
-describe("spentUsdOf", () => {
+describe("spentOf", () => {
 	it("sums only non-cancelled over an arbitrary subset", () => {
 		const { expenses } = fixture();
-		expect(spentUsdOf(expenses)).toBe(150);
-	});
-});
-
-describe("globalLedger", () => {
-	it("aggregates across branches excluding cancelled", () => {
-		const g = globalLedger(fixture());
-		expect(g.releasedUsd).toBe(300);
-		expect(g.spentUsd).toBe(150);
-		expect(g.remainingUsd).toBe(150);
+		expect(spentOf(expenses)).toBe(150);
 	});
 });

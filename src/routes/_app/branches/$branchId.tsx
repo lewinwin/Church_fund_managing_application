@@ -19,7 +19,6 @@ import {
 	expensesForBranch,
 	releasesForBranch,
 } from "#/lib/calc";
-import { usdToLocal } from "#/lib/currency/exchangeRate";
 import { formatMoney } from "#/lib/format";
 import { ledgerFor } from "#/lib/ledger";
 import { useStore } from "#/lib/store/store";
@@ -53,8 +52,6 @@ function BranchDetailPage() {
 
 	// This branch's own currency drives every figure on the page.
 	const cur = branch.localCurrency;
-	const rate = branch.exchangeRateToUsd;
-	const local = (usd: number) => formatMoney(usdToLocal(usd, rate), cur);
 
 	const led = ledgerFor(data, branch.id);
 	const expenses = expensesForBranch(data, branch.id);
@@ -94,17 +91,17 @@ function BranchDetailPage() {
 
 			<FundOverview
 				title="Fund balance"
-				releasedUsd={led.releasedUsd}
-				spentUsd={led.spentUsd}
-				remainingUsd={led.remainingUsd}
+				released={led.released}
+				spent={led.spent}
+				remaining={led.remaining}
 				percentUsed={led.percentUsed}
 				status={led.status}
-				displayCurrency={cur}
-				displayRate={rate}
+				currency={cur}
 				localLine={
 					plan
-						? `Active plan: ${plan.description} · Target ${local(
-								plan.totalTargetUsd,
+						? `Active plan: ${plan.description} · Target ${formatMoney(
+								plan.totalTarget,
+								cur,
 							)}`
 						: "No active funding plan for this branch."
 				}
@@ -114,7 +111,6 @@ function BranchDetailPage() {
 				releases={releases}
 				users={data.users}
 				currency={cur}
-				rate={rate}
 			/>
 
 			<SectionCard title="Expenses">
@@ -132,7 +128,6 @@ function BranchDetailPage() {
 				branches={data.branches}
 				users={data.users}
 				onClose={() => setSelected(null)}
-				showUsd={false}
 			/>
 			<FundReleaseModal
 				open={releaseOpen}

@@ -1,43 +1,34 @@
 import type { ReactNode } from "react";
 import { Card, cx, ProgressBar, StatusPill } from "#/components/ui/primitives";
-import { usdToLocal } from "#/lib/currency/exchangeRate";
 import { formatAmount, formatPercent } from "#/lib/format";
 import type { BalanceStatus, CurrencyCode } from "#/lib/types";
 
-// Released / Spent / Remaining with a usage bar. Reused across the branch
-// dashboard, HQ dashboard and branch detail. HQ views leave displayCurrency
-// unset (USD); branch views pass their local currency to show local figures.
-// The currency unit is shown once (next to the title) so the three values stay
+// Released / Spent / Remaining with a usage bar, in the branch's local currency.
+// The currency code is shown once (next to the title) so the three values stay
 // symbol-free and never collide on narrow screens.
 export function FundOverview({
 	title,
-	releasedUsd,
-	spentUsd,
-	remainingUsd,
+	released,
+	spent,
+	remaining,
 	percentUsed,
 	status,
 	localLine,
-	displayCurrency,
-	displayRate,
+	currency,
 }: {
 	title: string;
-	releasedUsd: number;
-	spentUsd: number;
-	remainingUsd: number;
+	released: number;
+	spent: number;
+	remaining: number;
 	percentUsed: number;
 	status?: BalanceStatus;
 	localLine?: string;
-	displayCurrency?: CurrencyCode;
-	/** local rate (1 local = rate USD) — required when displayCurrency is local. */
-	displayRate?: number;
+	currency: CurrencyCode;
 }) {
 	const barTone =
 		status === "low" ? "red" : status === "warning" ? "amber" : "forest";
 
-	const isLocal = displayCurrency != null && displayCurrency !== "USD";
-	const unit: CurrencyCode = isLocal ? displayCurrency : "USD";
-	const amt = (usd: number) =>
-		formatAmount(isLocal ? usdToLocal(usd, displayRate ?? 1) : usd, unit);
+	const amt = (n: number) => formatAmount(n, currency);
 
 	return (
 		<Card className="p-5">
@@ -45,16 +36,16 @@ export function FundOverview({
 				<div className="flex min-w-0 items-center gap-2">
 					<h3 className="text-base font-semibold">{title}</h3>
 					<span className="shrink-0 rounded-md bg-[var(--color-forest-50)] px-1.5 py-0.5 text-xs font-semibold text-[var(--color-forest-700)]">
-						{unit}
+						{currency}
 					</span>
 				</div>
 				{status && <StatusPill status={status} />}
 			</div>
 
 			<div className="mt-4 grid grid-cols-3 gap-2">
-				<Metric label="Released" value={amt(releasedUsd)} tone="ink" />
-				<Metric label="Spent" value={amt(spentUsd)} tone="red" />
-				<Metric label="Remaining" value={amt(remainingUsd)} tone="green" />
+				<Metric label="Released" value={amt(released)} tone="ink" />
+				<Metric label="Spent" value={amt(spent)} tone="red" />
+				<Metric label="Remaining" value={amt(remaining)} tone="green" />
 			</div>
 
 			<div className="mt-4">

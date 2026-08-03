@@ -12,14 +12,8 @@ import {
 } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { branchById, primaryCategories, subCategories } from "#/lib/calc";
-import {
-	availableCurrencies,
-	rateForCurrency,
-	toUsd,
-} from "#/lib/currency/exchangeRate";
 import { formatMoney, todayIso } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
-import type { CurrencyCode } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/submit-receipt")({
 	component: SubmitReceiptPage,
@@ -47,9 +41,6 @@ function SubmitReceiptPage() {
 	// Manual entry — the branch types everything; OCR verifies it after submit.
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
-	const [currency, setCurrency] = useState<CurrencyCode>(
-		branch?.localCurrency ?? "USD",
-	);
 	const [expenseDate, setExpenseDate] = useState(todayIso());
 	const [categoryId, setCategoryId] = useState("");
 	const [subId, setSubId] = useState("");
@@ -59,6 +50,8 @@ function SubmitReceiptPage() {
 
 	if (!branch) return null;
 
+	// Expenses are always in the branch's own currency.
+	const currency = branch.localCurrency;
 	const activePrimary = primaryCategories(data.categories, true);
 	const subs = subCategories(data.categories, categoryId, true);
 	const requiresSub = subs.length > 0; // Only "Other" carries sub-categories.
@@ -85,13 +78,6 @@ function SubmitReceiptPage() {
 		if (!dataUrl)
 			return setError("Upload the receipt image before submitting.");
 
-		// Own currency uses the branch's rate; another branch's currency uses that
-		// branch's rate (never a silent 1.0).
-		const rate =
-			currency === branch.localCurrency
-				? branch.exchangeRateToUsd
-				: rateForCurrency(currency, data.branches);
-
 		setSubmitting(true);
 		try {
 			const id = await addExpense({
@@ -101,8 +87,6 @@ function SubmitReceiptPage() {
 				expenseDate,
 				localAmount: Math.round(amt * 100) / 100,
 				localCurrency: currency,
-				exchangeRateToUsd: rate,
-				usdAmount: toUsd(amt, rate),
 				categoryId,
 				otherSubcategoryId: requiresSub ? subId : null,
 				receiptFileName: fileName,
@@ -125,7 +109,6 @@ function SubmitReceiptPage() {
 		setDataUrl(null);
 		setDescription("");
 		setAmount("");
-		setCurrency(branch?.localCurrency ?? "USD");
 		setExpenseDate(todayIso());
 		setCategoryId("");
 		setSubId("");
@@ -232,33 +215,16 @@ function SubmitReceiptPage() {
 						/>
 					</Field>
 
-					<div className="grid grid-cols-2 gap-3">
-						<Field label="Amount" required>
-							<Input
-								type="number"
-								min="0"
-								step="0.01"
-								placeholder="0.00"
-								value={amount}
-								onChange={(e) => setAmount(e.target.value)}
-							/>
-						</Field>
-						<Field label="Currency" required>
-							<Select
-								value={currency}
-								onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-							>
-								{availableCurrencies(branch.localCurrency, data.branches).map(
-									(c) => (
-										<option key={c} value={c}>
-											{c}
-											{c === branch.localCurrency ? " (branch)" : ""}
-										</option>
-									),
-								)}
-							</Select>
-						</Field>
-					</div>
+					<Field label={`Amount (${currency})`} required>
+						<Input
+							type="number"
+							min="0"
+							step="0.01"
+							placeholder="0.00"
+							value={amount}
+							onChange={(e) => setAmount(e.target.value)}
+						/>
+					</Field>
 
 					<Field label="Expense date" required>
 						<Input

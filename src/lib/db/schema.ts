@@ -76,13 +76,9 @@ export const branches = pgTable("branches", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	country: text("country").notNull(),
+	// The branch operates entirely in this currency; all its amounts are stored
+	// and shown in it. There is no common/cross-branch currency.
 	localCurrency: text("local_currency").notNull(),
-	// local currency -> USD multiplier (1 local unit = rate USD). Stored per
-	// branch so HQ can add branches with new currencies at runtime. The default
-	// (USD parity) is only a migration fallback; real branches always set a rate.
-	exchangeRateToUsd: doublePrecision("exchange_rate_to_usd")
-		.notNull()
-		.default(1),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -99,7 +95,7 @@ export const fundingPlans = pgTable("funding_plans", {
 	branchId: text("branch_id")
 		.notNull()
 		.references(() => branches.id),
-	totalTargetUsd: doublePrecision("total_target_usd").notNull(),
+	totalTarget: doublePrecision("total_target").notNull(),
 	description: text("description").notNull().default(""),
 	status: text("status").notNull().default("active"), // active | closed | cancelled
 	createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -113,7 +109,7 @@ export const fundReleases = pgTable("fund_releases", {
 	branchId: text("branch_id")
 		.notNull()
 		.references(() => branches.id),
-	amountUsd: doublePrecision("amount_usd").notNull(),
+	amount: doublePrecision("amount").notNull(),
 	releaseDate: text("release_date").notNull(),
 	note: text("note"),
 	createdByUserId: text("created_by_user_id"),
@@ -130,8 +126,6 @@ export const expenses = pgTable("expenses", {
 	expenseDate: text("expense_date").notNull(), // ISO date (YYYY-MM-DD)
 	localAmount: doublePrecision("local_amount").notNull(),
 	localCurrency: text("local_currency").notNull(),
-	exchangeRateToUsd: doublePrecision("exchange_rate_to_usd").notNull(),
-	usdAmount: doublePrecision("usd_amount").notNull(),
 	categoryId: text("category_id").notNull(),
 	otherSubcategoryId: text("other_subcategory_id"),
 	receiptFileName: text("receipt_file_name"),

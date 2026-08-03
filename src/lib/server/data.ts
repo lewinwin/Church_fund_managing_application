@@ -38,7 +38,6 @@ function mapBranch(r: typeof t.branches.$inferSelect): Branch {
 		name: r.name,
 		country: r.country,
 		localCurrency: r.localCurrency as CurrencyCode,
-		exchangeRateToUsd: r.exchangeRateToUsd,
 		createdAt: iso(r.createdAt),
 	};
 }
@@ -60,8 +59,6 @@ function mapExpense(r: typeof t.expenses.$inferSelect): Expense {
 		expenseDate: r.expenseDate,
 		localAmount: r.localAmount,
 		localCurrency: r.localCurrency as CurrencyCode,
-		exchangeRateToUsd: r.exchangeRateToUsd,
-		usdAmount: r.usdAmount,
 		categoryId: r.categoryId,
 		otherSubcategoryId: r.otherSubcategoryId,
 		receiptFileName: r.receiptFileName,
@@ -78,7 +75,7 @@ function mapPlan(r: typeof t.fundingPlans.$inferSelect): FundingPlan {
 	return {
 		id: r.id,
 		branchId: r.branchId,
-		totalTargetUsd: r.totalTargetUsd,
+		totalTarget: r.totalTarget,
 		description: r.description,
 		status: r.status as FundingPlanStatus,
 		createdAt: iso(r.createdAt),
@@ -89,7 +86,7 @@ function mapRelease(r: typeof t.fundReleases.$inferSelect): FundRelease {
 		id: r.id,
 		fundingPlanId: r.fundingPlanId,
 		branchId: r.branchId,
-		amountUsd: r.amountUsd,
+		amount: r.amount,
 		releaseDate: r.releaseDate,
 		note: r.note,
 		createdByUserId: r.createdByUserId ?? "",
@@ -163,8 +160,6 @@ export interface SubmitExpenseInput {
 	expenseDate: string;
 	localAmount: number;
 	localCurrency: CurrencyCode;
-	exchangeRateToUsd: number;
-	usdAmount: number;
 	categoryId: string;
 	otherSubcategoryId: string | null;
 	receiptFileName: string | null;
@@ -185,8 +180,6 @@ export async function submitExpense(ctx: AuthCtx, input: SubmitExpenseInput) {
 		expenseDate: input.expenseDate,
 		localAmount: input.localAmount,
 		localCurrency: input.localCurrency,
-		exchangeRateToUsd: input.exchangeRateToUsd,
-		usdAmount: input.usdAmount,
 		categoryId: input.categoryId,
 		otherSubcategoryId: input.otherSubcategoryId,
 		receiptFileName: input.receiptFileName,
@@ -365,7 +358,6 @@ export async function updateExpenseFields(
 		throw new Error("Amount must be greater than 0");
 	await applyReviewAction(exp, "edit", "branch_user", {
 		localAmount: input.localAmount,
-		usdAmount: input.localAmount * exp.exchangeRateToUsd,
 		expenseDate: input.expenseDate,
 		categoryId: input.categoryId,
 		otherSubcategoryId: input.otherSubcategoryId,
@@ -377,7 +369,7 @@ export async function createFundingPlan(
 	ctx: AuthCtx,
 	input: {
 		branchId: string;
-		totalTargetUsd: number;
+		totalTarget: number;
 		description: string;
 		status: FundingPlanStatus;
 	},
@@ -392,7 +384,7 @@ export async function updateFundingPlan(
 	ctx: AuthCtx,
 	id: string,
 	patch: Partial<{
-		totalTargetUsd: number;
+		totalTarget: number;
 		description: string;
 		status: FundingPlanStatus;
 	}>,
@@ -401,18 +393,18 @@ export async function updateFundingPlan(
 	await db.update(t.fundingPlans).set(patch).where(eq(t.fundingPlans.id, id));
 }
 
-/** Increase a plan's target by amountUsd (atomic). HQ-only, increase-only. */
+/** Increase a plan's target by `amount` (branch currency, atomic). HQ-only. */
 export async function addToPlanTarget(
 	ctx: AuthCtx,
 	planId: string,
-	amountUsd: number,
+	amount: number,
 ) {
 	assertHq(ctx);
-	if (!(amountUsd > 0)) throw new Error("Amount must be greater than 0");
+	if (!(amount > 0)) throw new Error("Amount must be greater than 0");
 	await db
 		.update(t.fundingPlans)
 		.set({
-			totalTargetUsd: sql`${t.fundingPlans.totalTargetUsd} + ${amountUsd}`,
+			totalTarget: sql`${t.fundingPlans.totalTarget} + ${amount}`,
 		})
 		.where(eq(t.fundingPlans.id, planId));
 }
@@ -425,20 +417,15 @@ export async function createBranch(
 		name: string;
 		country: string;
 		currencyCode: string;
-		exchangeRateToUsd: number;
 	},
 ) {
 	assertHq(ctx);
-	if (!(input.exchangeRateToUsd > 0)) {
-		throw new Error("Exchange rate must be greater than 0");
-	}
 	const id = newId("br");
 	await db.insert(t.branches).values({
 		id,
 		name: input.name,
 		country: input.country,
 		localCurrency: input.currencyCode.toUpperCase(),
-		exchangeRateToUsd: input.exchangeRateToUsd,
 	});
 	return id;
 }
@@ -448,7 +435,7 @@ export async function recordFundRelease(
 	input: {
 		fundingPlanId: string;
 		branchId: string;
-		amountUsd: number;
+		amount: number;
 		releaseDate: string;
 		note: string | null;
 	},

@@ -17,11 +17,11 @@ const LOW_THRESHOLD = 0.15;
 const WARNING_THRESHOLD = 0.35;
 
 export function balanceStatus(
-	remainingUsd: number,
-	releasedUsd: number,
+	remaining: number,
+	released: number,
 ): BalanceStatus {
-	if (releasedUsd <= 0) return "low";
-	const ratio = remainingUsd / releasedUsd;
+	if (released <= 0) return "low";
+	const ratio = remaining / released;
 	if (ratio <= LOW_THRESHOLD) return "low";
 	if (ratio <= WARNING_THRESHOLD) return "warning";
 	return "healthy";
@@ -93,7 +93,8 @@ export function activePlanForBranch(
 export interface CategorySlice {
 	categoryId: string;
 	label: string;
-	usd: number;
+	/** Total spend for this category, in the branch's local currency. */
+	amount: number;
 	count: number;
 }
 
@@ -107,18 +108,18 @@ export function spendByCategory(
 		const label = cat?.name ?? "Uncategorized";
 		const existing = byId.get(e.categoryId);
 		if (existing) {
-			existing.usd = round2(existing.usd + e.usdAmount);
+			existing.amount = round2(existing.amount + e.localAmount);
 			existing.count += 1;
 		} else {
 			byId.set(e.categoryId, {
 				categoryId: e.categoryId,
 				label,
-				usd: e.usdAmount,
+				amount: e.localAmount,
 				count: 1,
 			});
 		}
 	}
-	return [...byId.values()].sort((a, b) => b.usd - a.usd);
+	return [...byId.values()].sort((a, b) => b.amount - a.amount);
 }
 
 // ---------------------------------------------------------------------------

@@ -3,34 +3,34 @@
 		{
 			"id": "fp-sg",
 			"branchId": "br-sg",
-			"totalTargetUsd": 6000,
 			"description": "2026 Singapore branch operations & outreach fund.",
 			"status": "active",
-			"createdAt": "2026-03-01T09:00:00.000Z"
+			"createdAt": "2026-03-01T09:00:00.000Z",
+			"totalTarget": 8097.17
 		},
 		{
 			"id": "fp-mw",
 			"branchId": "br-mw",
-			"totalTargetUsd": 5000,
 			"description": "2026 Malawi branch petty cash & facilities fund.",
 			"status": "active",
-			"createdAt": "2026-03-01T09:00:00.000Z"
+			"createdAt": "2026-03-01T09:00:00.000Z",
+			"totalTarget": 8650519.03
 		},
 		{
 			"id": "fp-za",
 			"branchId": "br-za",
-			"totalTargetUsd": 4000,
 			"description": "2026 South Africa branch running-costs fund.",
 			"status": "active",
-			"createdAt": "2026-03-01T09:00:00.000Z"
+			"createdAt": "2026-03-01T09:00:00.000Z",
+			"totalTarget": 71942.45
 		},
 		{
 			"id": "fp-cr",
 			"branchId": "br-cr",
-			"totalTargetUsd": 5000,
 			"description": "2026 Costa Rica branch ministry & events fund.",
 			"status": "active",
-			"createdAt": "2026-03-01T09:00:00.000Z"
+			"createdAt": "2026-03-01T09:00:00.000Z",
+			"totalTarget": 2551020.41
 		}
 	],
 	"releases": [
@@ -38,81 +38,81 @@
 			"id": "fr-sg-1",
 			"fundingPlanId": "fp-sg",
 			"branchId": "br-sg",
-			"amountUsd": 1000,
 			"releaseDate": "2026-04-10",
 			"note": "Initial Q2 tranche",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-04-10T09:00:00.000Z"
+			"createdAt": "2026-04-10T09:00:00.000Z",
+			"amount": 1349.53
 		},
 		{
 			"id": "fr-sg-2",
 			"fundingPlanId": "fp-sg",
 			"branchId": "br-sg",
-			"amountUsd": 600,
 			"releaseDate": "2026-05-20",
 			"note": "Top-up for June conference venue",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-05-20T09:00:00.000Z"
+			"createdAt": "2026-05-20T09:00:00.000Z",
+			"amount": 809.72
 		},
 		{
 			"id": "fr-mw-1",
 			"fundingPlanId": "fp-mw",
 			"branchId": "br-mw",
-			"amountUsd": 1200,
 			"releaseDate": "2026-04-05",
 			"note": "Initial Q2 tranche",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-04-05T09:00:00.000Z"
+			"createdAt": "2026-04-05T09:00:00.000Z",
+			"amount": 2076124.57
 		},
 		{
 			"id": "fr-mw-2",
 			"fundingPlanId": "fp-mw",
 			"branchId": "br-mw",
-			"amountUsd": 600,
 			"releaseDate": "2026-05-18",
 			"note": "PA system repair allowance",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-05-18T09:00:00.000Z"
+			"createdAt": "2026-05-18T09:00:00.000Z",
+			"amount": 1038062.28
 		},
 		{
 			"id": "fr-za-1",
 			"fundingPlanId": "fp-za",
 			"branchId": "br-za",
-			"amountUsd": 500,
 			"releaseDate": "2026-04-08",
 			"note": "Initial Q2 tranche",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-04-08T09:00:00.000Z"
+			"createdAt": "2026-04-08T09:00:00.000Z",
+			"amount": 8992.81
 		},
 		{
 			"id": "fr-za-2",
 			"fundingPlanId": "fp-za",
 			"branchId": "br-za",
-			"amountUsd": 200,
 			"releaseDate": "2026-05-15",
 			"note": "Utilities buffer",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-05-15T09:00:00.000Z"
+			"createdAt": "2026-05-15T09:00:00.000Z",
+			"amount": 3597.12
 		},
 		{
 			"id": "fr-cr-1",
 			"fundingPlanId": "fp-cr",
 			"branchId": "br-cr",
-			"amountUsd": 1400,
 			"releaseDate": "2026-04-12",
 			"note": "Initial Q2 tranche",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-04-12T09:00:00.000Z"
+			"createdAt": "2026-04-12T09:00:00.000Z",
+			"amount": 714285.71
 		},
 		{
 			"id": "fr-cr-2",
 			"fundingPlanId": "fp-cr",
 			"branchId": "br-cr",
-			"amountUsd": 600,
 			"releaseDate": "2026-05-22",
 			"note": "Events & sound equipment",
 			"createdByUserId": "u-hq",
-			"createdAt": "2026-05-22T09:00:00.000Z"
+			"createdAt": "2026-05-22T09:00:00.000Z",
+			"amount": 306122.45
 		}
 	]
 }

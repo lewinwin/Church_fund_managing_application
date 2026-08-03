@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import { EmptyState, Input, Select } from "#/components/ui/primitives";
 import { categoryLabel, primaryCategories } from "#/lib/calc";
-import { formatDate, formatMoney, formatUsd } from "#/lib/format";
+import { formatDate, formatMoney } from "#/lib/format";
 import type { Category, Expense } from "#/lib/types";
 
 // Reused by Branch "My Receipts" and HQ Branch Detail. Includes the search +
@@ -14,15 +14,12 @@ export function ExpenseTable({
 	onSelect,
 	showBranchColumn,
 	branchName,
-	showUsd = true,
 }: {
 	expenses: Expense[];
 	categories: Category[];
 	onSelect: (expense: Expense) => void;
 	showBranchColumn?: (expense: Expense) => string;
 	branchName?: string;
-	/** HQ views show the USD column; branch views (local currency) hide it. */
-	showUsd?: boolean;
 }) {
 	const [query, setQuery] = useState("");
 	const [categoryId, setCategoryId] = useState("all");
@@ -75,7 +72,7 @@ export function ExpenseTable({
 		},
 		{
 			key: "local",
-			header: showUsd ? "Local amount" : "Amount",
+			header: "Amount",
 			align: "right",
 			render: (e) => (
 				<span className="font-semibold">
@@ -83,18 +80,6 @@ export function ExpenseTable({
 				</span>
 			),
 		},
-		...(showUsd
-			? [
-					{
-						key: "usd",
-						header: "USD",
-						align: "right",
-						render: (e: Expense) => (
-							<span className="font-semibold">{formatUsd(e.usdAmount)}</span>
-						),
-					} satisfies Column<Expense>,
-				]
-			: []),
 	];
 
 	return (

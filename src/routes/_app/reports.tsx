@@ -13,23 +13,20 @@ import {
 import { StatCard } from "#/components/ui/StatCard";
 import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel, primaryCategories } from "#/lib/calc";
-import { usdToLocal } from "#/lib/currency/exchangeRate";
-import { globalLedger, ledgerFor, spentUsdOf } from "#/lib/ledger";
 import { type CsvRow, downloadCsv, printReport } from "#/lib/export";
 import {
 	formatDate,
 	formatDateTime,
 	formatMoney,
-	formatUsd,
+	formatWithCode,
 } from "#/lib/format";
+import { ledgerFor, spentOf } from "#/lib/ledger";
 import { useStore } from "#/lib/store/store";
 import type { Expense } from "#/lib/types";
 
 export const Route = createFileRoute("/_app/reports")({
 	component: ReportsPage,
 });
-
-type CurrencyView = "both" | "usd" | "local";
 
 function ReportsPage() {
 	const { user } = useAuth();
@@ -41,16 +38,17 @@ function ReportsPage() {
 
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
-	const [branchId, setBranchId] = useState(user?.branchId ?? "all");
+	// A report is always scoped to one branch — there is no common currency to
+	// total across branches. HQ picks a branch; a branch user sees their own.
+	const [branchId, setBranchId] = useState(
+		user?.branchId ?? data.branches[0]?.id ?? "",
+	);
 	const [categoryId, setCategoryId] = useState("all");
-	const [currencyView, setCurrencyView] = useState<CurrencyView>("both");
 
 	const filtered = useMemo(() => {
 		return base
-			.filter((e) => (branchId === "all" ? true : e.branchId === branchId))
-			.filter((e) =>
-				categoryId === "all" ? true : e.categoryId === categoryId,
-			)
+			.filter((e) => e.branchId === branchId)
+			.filter((e) => (categoryId === "all" ? true : e.categoryId === categoryId))
 			.filter((e) => (from ? e.expenseDate >= from : true))
 			.filter((e) => (to ? e.expenseDate <= to : true))
 			.sort((a, b) => (a.expenseDate < b.expenseDate ? 1 : -1));
@@ -58,38 +56,17 @@ function ReportsPage() {
 
 	// Spend over the filtered set, excluding cancelled — same rule as the branch
 	// balance, so this tile can't disagree with Remaining.
-	const spentFiltered = spentUsdOf(filtered);
+	const spentFiltered = spentOf(filtered);
 
-	// Released / remaining reflect the selected scope (a branch, or all).
-	const scope = useMemo(() => {
-		if (branchId === "all") {
-			const g = globalLedger(data);
-			return { released: g.releasedUsd, remaining: g.remainingUsd };
-		}
-		const l = ledgerFor(data, branchId);
-		return { released: l.releasedUsd, remaining: l.remainingUsd };
-	}, [data, branchId]);
+	// Released / remaining for the selected branch, in its local currency.
+	const led = useMemo(() => ledgerFor(data, branchId), [data, branchId]);
 
 	const branchName = (id: string) =>
 		data.branches.find((b) => b.id === id)?.name ?? id;
 
-	// When the report is scoped to a single branch, the summary tiles show that
-	// branch's local currency; across "all branches" (HQ) they stay in USD since
-	// the currencies differ.
-	const selectedBranch =
-		branchId === "all"
-			? null
-			: (data.branches.find((b) => b.id === branchId) ?? null);
-	const statMoney = (usd: number) =>
-		selectedBranch
-			? formatMoney(
-					usdToLocal(usd, selectedBranch.exchangeRateToUsd),
-					selectedBranch.localCurrency,
-				)
-			: formatUsd(usd);
-
-	const showLocal = currencyView !== "usd";
-	const showUsd = currencyView !== "local";
+	const currency = led.currency;
+	// Summary tiles show the amount with the currency CODE (e.g. "6,100.00 SGD").
+	const statMoney = (n: number) => formatWithCode(n, currency);
 
 	const columns: Column<Expense>[] = [
 		{ key: "date", header: "Date", render: (e) => formatDate(e.expenseDate) },
@@ -98,43 +75,22 @@ function ReportsPage() {
 			header: "Description",
 			render: (e) => <span className="font-medium">{e.description}</span>,
 		},
-		...(isHq
-			? [
-					{
-						key: "branch",
-						header: "Branch",
-						render: (e: Expense) => branchName(e.branchId),
-					} satisfies Column<Expense>,
-				]
-			: []),
 		{
 			key: "category",
 			header: "Category",
 			render: (e) =>
 				categoryLabel(data.categories, e.categoryId, e.otherSubcategoryId),
 		},
-		...(showLocal
-			? [
-					{
-						key: "local",
-						header: "Local",
-						align: "right",
-						render: (e: Expense) => formatMoney(e.localAmount, e.localCurrency),
-					} satisfies Column<Expense>,
-				]
-			: []),
-		...(showUsd
-			? [
-					{
-						key: "usd",
-						header: "USD",
-						align: "right",
-						render: (e: Expense) => (
-							<span className="font-semibold">{formatUsd(e.usdAmount)}</span>
-						),
-					} satisfies Column<Expense>,
-				]
-			: []),
+		{
+			key: "amount",
+			header: "Amount",
+			align: "right",
+			render: (e) => (
+				<span className="font-semibold">
+					{formatMoney(e.localAmount, e.localCurrency)}
+				</span>
+			),
+		},
 	];
 
 	function buildCsvRows(): CsvRow[] {
@@ -147,41 +103,36 @@ function ReportsPage() {
 				e.categoryId,
 				e.otherSubcategoryId,
 			),
-			"Local amount": e.localAmount,
+			Amount: e.localAmount,
 			Currency: e.localCurrency,
-			"Exchange rate": e.exchangeRateToUsd,
-			USD: e.usdAmount,
 			"Submitted at": formatDateTime(e.createdAt),
 		}));
 	}
 
 	function handleCsv() {
-		const scopeLabel =
-			branchId === "all" ? "all-branches" : branchName(branchId);
-		downloadCsv(`ministry-funding-report-${scopeLabel}`, buildCsvRows());
+		downloadCsv(
+			`ministry-funding-report-${branchName(branchId)}`,
+			buildCsvRows(),
+		);
 	}
 
 	function handlePdf() {
-		const scopeLabel =
-			branchId === "all" ? "All branches" : branchName(branchId);
 		printReport(
 			"611 Ministry Funding — Expense Report",
-			`${scopeLabel} · ${from || "start"} → ${to || "today"}`,
+			`${branchName(branchId)} · ${from || "start"} → ${to || "today"}`,
 			[
-				{ label: "Total released", value: statMoney(scope.released) },
+				{ label: "Total released", value: statMoney(led.released) },
 				{ label: "Spent (filtered)", value: statMoney(spentFiltered) },
-				{ label: "Remaining", value: statMoney(scope.remaining) },
+				{ label: "Remaining", value: statMoney(led.remaining) },
 				{ label: "Receipts", value: String(filtered.length) },
 			],
 			{
-				columns: ["Date", "Description", "Branch", "Category", "Local", "USD"],
+				columns: ["Date", "Description", "Category", "Amount"],
 				rows: filtered.map((e) => [
 					e.expenseDate,
 					e.description,
-					branchName(e.branchId),
 					categoryLabel(data.categories, e.categoryId, e.otherSubcategoryId),
 					formatMoney(e.localAmount, e.localCurrency),
-					formatUsd(e.usdAmount),
 				]),
 			},
 		);
@@ -211,7 +162,6 @@ function ReportsPage() {
 								value={branchId}
 								onChange={(e) => setBranchId(e.target.value)}
 							>
-								<option value="all">All branches</option>
 								{data.branches.map((b) => (
 									<option key={b.id} value={b.id}>
 										{b.name}
@@ -233,25 +183,11 @@ function ReportsPage() {
 							))}
 						</Select>
 					</Field>
-					{isHq && (
-						<Field label="Currency view">
-							<Select
-								value={currencyView}
-								onChange={(e) =>
-									setCurrencyView(e.target.value as CurrencyView)
-								}
-							>
-								<option value="both">USD + local</option>
-								<option value="usd">USD only</option>
-								<option value="local">Local only</option>
-							</Select>
-						</Field>
-					)}
 				</div>
 			</SectionCard>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-				<StatCard label="Total released" value={statMoney(scope.released)} />
+				<StatCard label="Total released" value={statMoney(led.released)} />
 				<StatCard
 					label="Spent (filtered)"
 					value={statMoney(spentFiltered)}
@@ -259,7 +195,7 @@ function ReportsPage() {
 				/>
 				<StatCard
 					label="Remaining"
-					value={statMoney(scope.remaining)}
+					value={statMoney(led.remaining)}
 					accent="lime"
 				/>
 				<StatCard label="Receipts" value={String(filtered.length)} />

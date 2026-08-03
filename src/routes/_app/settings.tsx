@@ -145,19 +145,10 @@ function SettingsPage() {
 					<InfoRow label="Branch" value={branch.name} />
 					<InfoRow label="Country" value={branch.country} />
 					<InfoRow label="Local currency" value={branch.localCurrency} />
-					<InfoRow
-						label="Rate to USD"
-						value={`1 ${branch.localCurrency} = ${branch.exchangeRateToUsd} USD`}
-					/>
-					<p className="mt-3 rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
-						This is the fixed exchange rate HQ set for your branch. Contact HQ
-						if it needs updating.
-					</p>
 				</SectionCard>
 			) : (
 				<SectionCard title="Headquarters">
 					<InfoRow label="Scope" value="All branches" />
-					<InfoRow label="Reporting currency" value="USD" />
 					<InfoRow
 						label="Branches managed"
 						value={String(data.branches.length)}

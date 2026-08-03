@@ -59,13 +59,13 @@ function BranchesPage() {
 			key: "released",
 			header: "Released",
 			align: "right",
-			render: (r) => formatAmount(r.led.releasedLocal, r.led.currency),
+			render: (r) => formatAmount(r.led.released, r.led.currency),
 		},
 		{
 			key: "spent",
 			header: "Spent",
 			align: "right",
-			render: (r) => formatAmount(r.led.spentLocal, r.led.currency),
+			render: (r) => formatAmount(r.led.spent, r.led.currency),
 		},
 		{
 			key: "remaining",
@@ -73,7 +73,7 @@ function BranchesPage() {
 			align: "right",
 			render: (r) => (
 				<span className="font-semibold">
-					{formatAmount(r.led.remainingLocal, r.led.currency)}
+					{formatAmount(r.led.remaining, r.led.currency)}
 				</span>
 			),
 		},

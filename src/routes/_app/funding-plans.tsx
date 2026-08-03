@@ -15,14 +15,8 @@ import {
 	Textarea,
 } from "#/components/ui/primitives";
 import { activePlanForBranch } from "#/lib/calc";
-import { toUsd, usdToLocal } from "#/lib/currency/exchangeRate";
+import { formatAmount, formatMoney, formatPercent } from "#/lib/format";
 import { ledgerFor } from "#/lib/ledger";
-import {
-	formatAmount,
-	formatMoney,
-	formatPercent,
-	formatUsd,
-} from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 
@@ -30,18 +24,17 @@ export const Route = createFileRoute("/_app/funding-plans")({
 	component: FundingPlansPage,
 });
 
+// Every figure is in the plan's own branch local currency.
 interface PlanRow {
 	planId: string;
 	branchId: string;
 	branchName: string;
 	localCurrency: string;
-	rate: number;
-	targetUsd: number;
-	targetLocal: number;
-	releasedUsd: number;
-	spentUsd: number;
-	availableUsd: number;
-	remainingTargetUsd: number;
+	target: number;
+	released: number;
+	spent: number;
+	available: number;
+	remainingTarget: number;
 	percentUsed: number;
 	status: FundingPlanStatus;
 }
@@ -65,13 +58,11 @@ function FundingPlansPage() {
 			branchId: p.branchId,
 			branchName: branch?.name ?? p.branchId,
 			localCurrency: led.currency,
-			rate: led.rate,
-			targetUsd: p.totalTargetUsd,
-			targetLocal: usdToLocal(p.totalTargetUsd, led.rate),
-			releasedUsd: led.releasedUsd,
-			spentUsd: led.spentUsd,
-			availableUsd: led.remainingUsd,
-			remainingTargetUsd: Math.max(0, p.totalTargetUsd - led.releasedUsd),
+			target: p.totalTarget,
+			released: led.released,
+			spent: led.spent,
+			available: led.remaining,
+			remainingTarget: Math.max(0, p.totalTarget - led.released),
 			percentUsed: led.percentUsed,
 			status: p.status,
 		};
@@ -92,21 +83,19 @@ function FundingPlansPage() {
 			key: "target",
 			header: "Target",
 			align: "right",
-			render: (r) => formatAmount(r.targetLocal, r.localCurrency),
+			render: (r) => formatAmount(r.target, r.localCurrency),
 		},
 		{
 			key: "released",
 			header: "Released",
 			align: "right",
-			render: (r) =>
-				formatAmount(usdToLocal(r.releasedUsd, r.rate), r.localCurrency),
+			render: (r) => formatAmount(r.released, r.localCurrency),
 		},
 		{
 			key: "spent",
 			header: "Spent",
 			align: "right",
-			render: (r) =>
-				formatAmount(usdToLocal(r.spentUsd, r.rate), r.localCurrency),
+			render: (r) => formatAmount(r.spent, r.localCurrency),
 		},
 		{
 			key: "available",
@@ -114,7 +103,7 @@ function FundingPlansPage() {
 			align: "right",
 			render: (r) => (
 				<span className="font-semibold">
-					{formatAmount(usdToLocal(r.availableUsd, r.rate), r.localCurrency)}
+					{formatAmount(r.available, r.localCurrency)}
 				</span>
 			),
 		},
@@ -122,8 +111,7 @@ function FundingPlansPage() {
 			key: "remainingTarget",
 			header: "Left to release",
 			align: "right",
-			render: (r) =>
-				formatAmount(usdToLocal(r.remainingTargetUsd, r.rate), r.localCurrency),
+			render: (r) => formatAmount(r.remainingTarget, r.localCurrency),
 		},
 		{
 			key: "used",
@@ -184,8 +172,9 @@ function FundingPlansPage() {
 			>
 				<DataTable columns={columns} rows={rows} getKey={(r) => r.planId} />
 				<p className="mt-3 text-xs text-[var(--color-muted)]">
-					Available = released − spent. Recording a release increases both
-					released and available. Each branch has one active plan in v1 — use{" "}
+					Each figure is in the branch's own currency. Available = released −
+					spent. Recording a release increases both released and available. Each
+					branch has one active plan in v1 — use{" "}
 					<span className="font-medium">Manage</span> to edit a plan's target or
 					close it, which frees the branch for a new plan.
 				</p>
@@ -228,7 +217,7 @@ function AddToTargetModal({
 	const [busy, setBusy] = useState(false);
 
 	const add = Number(amount);
-	const newTargetLocal = row.targetLocal + (add > 0 ? add : 0);
+	const newTarget = row.target + (add > 0 ? add : 0);
 
 	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
@@ -236,7 +225,7 @@ function AddToTargetModal({
 		setBusy(true);
 		setError(null);
 		try {
-			await addToPlanTarget(row.planId, toUsd(add, row.rate));
+			await addToPlanTarget(row.planId, add);
 			onClose();
 		} catch {
 			setError("Could not update the target.");
@@ -265,7 +254,7 @@ function AddToTargetModal({
 				<div className="flex justify-between rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-sm">
 					<span className="text-[var(--color-muted)]">Current target</span>
 					<span className="font-semibold">
-						{formatMoney(row.targetLocal, row.localCurrency)}
+						{formatMoney(row.target, row.localCurrency)}
 					</span>
 				</div>
 				<Field label={`Amount to add (${row.localCurrency})`} required>
@@ -281,7 +270,7 @@ function AddToTargetModal({
 				<div className="flex justify-between rounded-lg border border-[var(--color-line)] px-3 py-2 text-sm">
 					<span className="text-[var(--color-muted)]">New target</span>
 					<span className="font-bold text-[var(--color-forest-700)]">
-						{formatMoney(newTargetLocal, row.localCurrency)}
+						{formatMoney(newTarget, row.localCurrency)}
 					</span>
 				</div>
 				{error && (
@@ -303,7 +292,7 @@ function CreatePlanModal({
 	onClose: () => void;
 	onCreate: (input: {
 		branchId: string;
-		totalTargetUsd: number;
+		totalTarget: number;
 		description: string;
 		status: FundingPlanStatus;
 	}) => void;
@@ -319,11 +308,9 @@ function CreatePlanModal({
 	const [status, setStatus] = useState<FundingPlanStatus>("active");
 	const [error, setError] = useState<string | null>(null);
 
-	// Target is entered in the selected branch's local currency, then converted
-	// to the USD figure the backend stores.
+	// Target is entered and stored in the selected branch's local currency.
 	const selectedBranch = data.branches.find((b) => b.id === branchId);
-	const currency = selectedBranch?.localCurrency ?? "USD";
-	const rate = selectedBranch?.exchangeRateToUsd ?? 1;
+	const currency = selectedBranch?.localCurrency ?? "";
 
 	function handleSubmit(e: FormEvent) {
 		e.preventDefault();
@@ -333,7 +320,7 @@ function CreatePlanModal({
 			return setError("Enter a valid target amount.");
 		onCreate({
 			branchId,
-			totalTargetUsd: toUsd(amt, rate),
+			totalTarget: amt,
 			description: description.trim() || "Branch funding plan",
 			status,
 		});
@@ -361,10 +348,7 @@ function CreatePlanModal({
 		>
 			<form id="create-plan-form" onSubmit={handleSubmit} className="space-y-4">
 				<Field label="Branch" required>
-					<Select
-						value={branchId}
-						onChange={(e) => setBranchId(e.target.value)}
-					>
+					<Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
 						{available.length === 0 && (
 							<option value="">All branches already have a plan</option>
 						)}
@@ -375,15 +359,7 @@ function CreatePlanModal({
 						))}
 					</Select>
 				</Field>
-				<Field
-					label={`Total target (${currency})`}
-					required
-					hint={
-						Number(target) > 0
-							? `≈ ${formatUsd(toUsd(Number(target), rate))}`
-							: undefined
-					}
-				>
+				<Field label={`Total target (${currency})`} required>
 					<Input
 						type="number"
 						min="0"

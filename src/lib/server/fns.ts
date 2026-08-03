@@ -171,7 +171,7 @@ export const createFundingPlanFn = createServerFn({ method: "POST" })
 	.validator(
 		(d: {
 			branchId: string;
-			totalTargetUsd: number;
+			totalTarget: number;
 			description: string;
 			status: FundingPlanStatus;
 		}) => d,
@@ -185,7 +185,7 @@ export const updateFundingPlanFn = createServerFn({ method: "POST" })
 		(d: {
 			id: string;
 			patch: Partial<{
-				totalTargetUsd: number;
+				totalTarget: number;
 				description: string;
 				status: FundingPlanStatus;
 			}>;
@@ -200,7 +200,7 @@ export const recordFundReleaseFn = createServerFn({ method: "POST" })
 		(d: {
 			fundingPlanId: string;
 			branchId: string;
-			amountUsd: number;
+			amount: number;
 			releaseDate: string;
 			note: string | null;
 		}) => d,
@@ -276,7 +276,6 @@ export const createBranchFn = createServerFn({ method: "POST" })
 			name: string;
 			country: string;
 			currencyCode: string;
-			exchangeRateToUsd: number;
 			loginEmail: string;
 			defaultPassword: string;
 		}) => d,
@@ -287,7 +286,6 @@ export const createBranchFn = createServerFn({ method: "POST" })
 			name: input.name,
 			country: input.country,
 			currencyCode: input.currencyCode,
-			exchangeRateToUsd: input.exchangeRateToUsd,
 		});
 		await auth.api.signUpEmail({
 			body: {
@@ -305,9 +303,9 @@ export const createBranchFn = createServerFn({ method: "POST" })
 
 // Increase an existing plan's target (HQ-only). Client sends the USD amount.
 export const addToPlanTargetFn = createServerFn({ method: "POST" })
-	.validator((d: { planId: string; amountUsd: number }) => d)
+	.validator((d: { planId: string; amount: number }) => d)
 	.handler(async ({ data: input }) =>
-		data.addToPlanTarget(await requireAuthCtx(), input.planId, input.amountUsd),
+		data.addToPlanTarget(await requireAuthCtx(), input.planId, input.amount),
 	);
 
 // A branch user changes their own password (Better Auth, session-scoped).

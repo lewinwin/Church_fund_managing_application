@@ -4,7 +4,6 @@
 import { type Column, DataTable } from "#/components/ui/DataTable";
 import { EmptyState, SectionCard } from "#/components/ui/primitives";
 import { userById } from "#/lib/calc";
-import { usdToLocal } from "#/lib/currency/exchangeRate";
 import { formatDate, formatMoney } from "#/lib/format";
 import type { CurrencyCode, FundRelease, User } from "#/lib/types";
 
@@ -12,16 +11,11 @@ export function FundReleaseHistory({
 	releases,
 	users,
 	currency,
-	rate,
 }: {
 	releases: FundRelease[];
 	users: User[];
 	currency: CurrencyCode;
-	/** 1 local unit = `rate` USD, for converting the stored USD amount to local. */
-	rate: number;
 }) {
-	const local = (usd: number) => formatMoney(usdToLocal(usd, rate), currency);
-
 	const columns: Column<FundRelease>[] = [
 		{
 			key: "date",
@@ -32,7 +26,9 @@ export function FundReleaseHistory({
 			key: "amount",
 			header: `Amount (${currency})`,
 			align: "right",
-			render: (r) => <span className="font-semibold">{local(r.amountUsd)}</span>,
+			render: (r) => (
+				<span className="font-semibold">{formatMoney(r.amount, currency)}</span>
+			),
 		},
 		{
 			key: "note",

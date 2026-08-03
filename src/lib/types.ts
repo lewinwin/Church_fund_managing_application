@@ -46,9 +46,9 @@ export interface Branch {
 	id: string;
 	name: string;
 	country: string;
+	/** The branch operates entirely in this currency. All its amounts are stored
+	 *  and shown in it — there is no cross-branch/common currency. */
 	localCurrency: CurrencyCode;
-	/** 1 local unit = this many USD. Stored per branch (fixed rate). */
-	exchangeRateToUsd: number;
 	createdAt: string;
 }
 
@@ -80,11 +80,9 @@ export interface Expense {
 	description: string;
 	/** ISO date (YYYY-MM-DD) of the receipt. */
 	expenseDate: string;
+	/** The amount, in the branch's local currency. */
 	localAmount: number;
 	localCurrency: CurrencyCode;
-	/** Snapshotted at entry time. Never recalculated. */
-	exchangeRateToUsd: number;
-	usdAmount: number;
 	categoryId: string;
 	otherSubcategoryId: string | null;
 	receiptFileName: string | null;
@@ -106,7 +104,8 @@ export interface Expense {
 export interface FundingPlan {
 	id: string;
 	branchId: string;
-	totalTargetUsd: number;
+	/** Target in the branch's local currency. */
+	totalTarget: number;
 	description: string;
 	status: FundingPlanStatus;
 	createdAt: string;
@@ -116,7 +115,8 @@ export interface FundRelease {
 	id: string;
 	fundingPlanId: string;
 	branchId: string;
-	amountUsd: number;
+	/** Amount released, in the branch's local currency. */
+	amount: number;
 	releaseDate: string;
 	note: string | null;
 	createdByUserId: string;

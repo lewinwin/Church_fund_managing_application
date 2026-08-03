@@ -39,20 +39,14 @@ export function GroupedExpenseList({
 	categories,
 	currency,
 	onSelect,
-	showUsd = false,
 }: {
 	expenses: Expense[];
 	categories: Category[];
 	currency: CurrencyCode;
 	onSelect: (expense: Expense) => void;
-	/** HQ branch-detail passes true to total in USD; branch views use local. */
-	showUsd?: boolean;
 }) {
-	const months = useMemo(
-		() => groupByMonth(expenses, showUsd),
-		[expenses, showUsd],
-	);
-	const unit: CurrencyCode = showUsd ? "USD" : currency;
+	const months = useMemo(() => groupByMonth(expenses), [expenses]);
+	const unit: CurrencyCode = currency;
 	const fmt = (n: number) => formatAmount(n, unit);
 
 	const [monthFilter, setMonthFilter] = useState("all");
@@ -181,7 +175,7 @@ export function GroupedExpenseList({
 																: ""
 														}`}
 													>
-														−{fmt(showUsd ? e.usdAmount : e.localAmount)}
+														−{fmt(e.localAmount)}
 													</span>
 												</button>
 											))}
@@ -221,7 +215,7 @@ interface MonthGroup {
 	days: DayGroup[];
 }
 
-function groupByMonth(expenses: Expense[], showUsd: boolean): MonthGroup[] {
+function groupByMonth(expenses: Expense[]): MonthGroup[] {
 	const byMonth = new Map<string, Expense[]>();
 	for (const e of expenses) {
 		const ym = e.expenseDate.slice(0, 7); // YYYY-MM
@@ -244,25 +238,25 @@ function groupByMonth(expenses: Expense[], showUsd: boolean): MonthGroup[] {
 				.sort((a, b) => (a[0] < b[0] ? 1 : -1))
 				.map(([day, dl]) => ({
 					day,
-					total: sumAmount(dl, showUsd),
+					total: sumAmount(dl),
 					flagged: dl.filter((e) => needsAction(e.reviewStatus)).length,
 					items: [...dl].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
 				}));
 			return {
 				ym,
-				total: sumAmount(list, showUsd),
+				total: sumAmount(list),
 				flagged: list.filter((e) => needsAction(e.reviewStatus)).length,
 				days,
 			};
 		});
 }
 
-function sumAmount(list: Expense[], showUsd: boolean): number {
+function sumAmount(list: Expense[]): number {
 	// Cancelled transactions are shown (marked) but excluded from the subtotals so
 	// month/day totals match the branch's actual spend.
 	return list
 		.filter((e) => e.reviewStatus !== "cancelled")
-		.reduce((s, e) => s + (showUsd ? e.usdAmount : e.localAmount), 0);
+		.reduce((s, e) => s + e.localAmount, 0);
 }
 
 function formatMonth(ym: string): string {

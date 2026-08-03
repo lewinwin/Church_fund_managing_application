@@ -41,17 +41,16 @@ function ExpensesPage() {
 		<div className="space-y-5">
 			<FundOverview
 				title="Fund balance"
-				releasedUsd={led.releasedUsd}
-				spentUsd={led.spentUsd}
-				remainingUsd={led.remainingUsd}
+				released={led.released}
+				spent={led.spent}
+				remaining={led.remaining}
 				percentUsed={led.percentUsed}
 				status={led.status}
-				displayCurrency={cur}
-				displayRate={led.rate}
+				currency={cur}
 				localLine={
 					plan
 						? `Active plan: ${plan.description} · all figures in ${cur}.`
-						: `All figures shown in ${cur} at the current exchange rate.`
+						: `All figures are in ${cur}.`
 				}
 			/>
 
@@ -84,7 +83,6 @@ function ExpensesPage() {
 				)}
 				users={data.users}
 				currency={cur}
-				rate={led.rate}
 			/>
 
 			<ExpenseDetailDrawer
@@ -93,7 +91,6 @@ function ExpensesPage() {
 				branches={data.branches}
 				users={data.users}
 				onClose={() => setSelected(null)}
-				showUsd={false}
 			/>
 		</div>
 	);

@@ -41,7 +41,7 @@ export function TopBar({
 				<p className="truncate text-xs text-[var(--color-muted)]">
 					{branch
 						? `${branch.name} · ${branch.localCurrency}`
-						: "Headquarters · all branches (USD)"}
+						: "Headquarters · all branches"}
 				</p>
 			</div>
 

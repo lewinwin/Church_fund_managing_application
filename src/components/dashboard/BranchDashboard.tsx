@@ -30,20 +30,20 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 			<div className="hidden gap-4 sm:grid sm:grid-cols-3">
 				<StatCard
 					label="Total released"
-					value={formatMoney(led.releasedLocal, cur)}
+					value={formatMoney(led.released, cur)}
 					icon={<Wallet size={17} />}
 					sub="Funds received from HQ"
 				/>
 				<StatCard
 					label="Total spent"
-					value={formatMoney(led.spentLocal, cur)}
+					value={formatMoney(led.spent, cur)}
 					accent="red"
 					icon={<ArrowUpRight size={17} />}
 					sub={`${expenses.length} receipts`}
 				/>
 				<StatCard
 					label="Remaining"
-					value={formatMoney(led.remainingLocal, cur)}
+					value={formatMoney(led.remaining, cur)}
 					accent="lime"
 					icon={<ArrowDownRight size={17} />}
 					sub="Available to spend"
@@ -54,14 +54,13 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 				<div className="space-y-5 lg:col-span-2">
 					<FundOverview
 						title="Fund balance"
-						releasedUsd={led.releasedUsd}
-						spentUsd={led.spentUsd}
-						remainingUsd={led.remainingUsd}
+						released={led.released}
+						spent={led.spent}
+						remaining={led.remaining}
 						percentUsed={led.percentUsed}
 						status={led.status}
-						displayCurrency={cur}
-						displayRate={led.rate}
-						localLine={`All figures shown in ${cur} at the current exchange rate.`}
+						currency={cur}
+						localLine={`All figures are in ${cur}.`}
 					/>
 
 					<SectionCard
@@ -77,7 +76,6 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 							categories={data.categories}
 							branches={data.branches}
 							onSelect={setSelected}
-							showUsd={false}
 						/>
 					</SectionCard>
 				</div>
@@ -115,11 +113,7 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 							/>
 						</SectionCard>
 					) : (
-						<CategoryDonutCard
-							categorySlices={led.byCategory}
-							displayCurrency={cur}
-							displayRate={branch.exchangeRateToUsd}
-						/>
+						<CategoryDonutCard categorySlices={led.byCategory} currency={cur} />
 					)}
 				</div>
 			</div>
@@ -130,7 +124,6 @@ export function BranchDashboard({ branch }: { branch: Branch }) {
 				branches={data.branches}
 				users={data.users}
 				onClose={() => setSelected(null)}
-				showUsd={false}
 			/>
 		</div>
 	);

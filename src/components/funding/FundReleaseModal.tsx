@@ -9,8 +9,7 @@ import {
 } from "#/components/ui/primitives";
 import { useAuth } from "#/lib/auth/auth";
 import { activePlanForBranch } from "#/lib/calc";
-import { toUsd } from "#/lib/currency/exchangeRate";
-import { formatUsd, todayIso } from "#/lib/format";
+import { todayIso } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 
 // Record a manual fund release (a "top-up"). Increases the branch's released
@@ -36,11 +35,9 @@ export function FundReleaseModal({
 	);
 	const [amount, setAmount] = useState("");
 
-	// Amount is entered in the selected branch's local currency, then converted
-	// to the USD figure the backend stores.
+	// Amount is entered and stored in the selected branch's local currency.
 	const selectedBranch = data.branches.find((b) => b.id === branchId);
-	const currency = selectedBranch?.localCurrency ?? "USD";
-	const rate = selectedBranch?.exchangeRateToUsd ?? 1;
+	const currency = selectedBranch?.localCurrency ?? "";
 	const [releaseDate, setReleaseDate] = useState(todayIso());
 	const [note, setNote] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -71,7 +68,7 @@ export function FundReleaseModal({
 		addFundRelease({
 			fundingPlanId: plan.id,
 			branchId,
-			amountUsd: toUsd(amt, rate),
+			amount: amt,
 			releaseDate,
 			note: note.trim() || null,
 			createdByUserId: user?.id ?? "u-hq",
@@ -116,15 +113,7 @@ export function FundReleaseModal({
 						))}
 					</Select>
 				</Field>
-				<Field
-					label={`Amount (${currency})`}
-					required
-					hint={
-						Number(amount) > 0
-							? `≈ ${formatUsd(toUsd(Number(amount), rate))}`
-							: undefined
-					}
-				>
+				<Field label={`Amount (${currency})`} required>
 					<Input
 						type="number"
 						min="0"

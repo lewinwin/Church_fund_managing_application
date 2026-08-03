@@ -54,22 +54,10 @@ export function formatAmount(amount: number, currency: CurrencyCode): string {
 	}).format(amount);
 }
 
-export function formatUsd(amount: number): string {
-	return new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency: "USD",
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	}).format(amount);
-}
-
-export function formatUsdCompact(amount: number): string {
-	return new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency: "USD",
-		notation: "compact",
-		maximumFractionDigits: 1,
-	}).format(amount);
+/** Number with the currency's CODE after it, e.g. "1,234.00 SGD". Used where we
+ *  want the currency named explicitly rather than shown as a symbol. */
+export function formatWithCode(amount: number, currency: CurrencyCode): string {
+	return `${formatAmount(amount, currency)} ${currency}`;
 }
 
 export function formatNumber(n: number): string {

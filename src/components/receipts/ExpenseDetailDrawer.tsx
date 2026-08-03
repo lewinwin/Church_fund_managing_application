@@ -6,12 +6,7 @@ import { EditExpenseForm } from "./EditExpenseForm";
 import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel } from "#/lib/calc";
 import { availableActions, isResolved } from "#/lib/reviewLifecycle";
-import {
-	formatDate,
-	formatDateTime,
-	formatMoney,
-	formatUsd,
-} from "#/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "#/lib/format";
 import type { Branch, Category, Expense, User } from "#/lib/types";
 import { ReceiptPreview } from "./ReceiptPreview";
 import { ReviewBadge } from "./ReviewBadge";
@@ -34,15 +29,12 @@ export function ExpenseDetailDrawer({
 	branches,
 	users,
 	onClose,
-	showUsd = true,
 }: {
 	expense: Expense | null;
 	categories: Category[];
 	branches: Branch[];
 	users: User[];
 	onClose: () => void;
-	/** HQ views show USD + exchange rate; branch views (local only) hide them. */
-	showUsd?: boolean;
 }) {
 	const { user } = useAuth();
 	// Correcting happens beside the drawer, so the receipt stays on screen.
@@ -120,9 +112,7 @@ export function ExpenseDetailDrawer({
 							<ReviewBadge status={expense.reviewStatus} />
 						</div>
 						<Badge tone="lime">
-							{showUsd
-								? formatUsd(expense.usdAmount)
-								: formatMoney(expense.localAmount, expense.localCurrency)}
+							{formatMoney(expense.localAmount, expense.localCurrency)}
 						</Badge>
 					</div>
 
@@ -172,17 +162,9 @@ export function ExpenseDetailDrawer({
 									expense.otherSubcategoryId,
 								)}
 							</Row>
-							<Row label={showUsd ? "Local amount" : "Amount"}>
+							<Row label="Amount">
 								{formatMoney(expense.localAmount, expense.localCurrency)}
 							</Row>
-							{showUsd && (
-								<Row label="Exchange rate">
-									1 {expense.localCurrency} = {expense.exchangeRateToUsd} USD
-								</Row>
-							)}
-							{showUsd && (
-								<Row label="USD equivalent">{formatUsd(expense.usdAmount)}</Row>
-							)}
 							<Row label="Submitted by">{submitter?.name ?? "—"}</Row>
 							<Row label="Submitted at">
 								{formatDateTime(expense.createdAt)}
@@ -203,12 +185,6 @@ export function ExpenseDetailDrawer({
 						</div>
 					)}
 
-					{showUsd && (
-						<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
-							Exchange rate was snapshotted at entry time and is never
-							recalculated when rates change.
-						</p>
-					)}
 				</div>
 			)}
 		</Drawer>

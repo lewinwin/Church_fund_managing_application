@@ -8,7 +8,7 @@ import {
 	Textarea,
 } from "#/components/ui/primitives";
 import { activePlanForBranch, branchById } from "#/lib/calc";
-import { formatUsd } from "#/lib/format";
+import { formatMoney } from "#/lib/format";
 import { useStore } from "#/lib/store/store";
 import type { FundingPlan, FundingPlanStatus } from "#/lib/types";
 
@@ -34,7 +34,7 @@ export function EditPlanModal({
 	// Re-seed the form whenever a different plan is opened.
 	useEffect(() => {
 		if (plan) {
-			setTarget(String(plan.totalTargetUsd));
+			setTarget(String(plan.totalTarget));
 			setDescription(plan.description);
 			setStatus(plan.status);
 			setError(null);
@@ -43,7 +43,9 @@ export function EditPlanModal({
 
 	if (!plan) return null;
 
-	const branchName = branchById(data.branches, plan.branchId)?.name ?? "Branch";
+	const branch = branchById(data.branches, plan.branchId);
+	const branchName = branch?.name ?? "Branch";
+	const currency = branch?.localCurrency ?? "";
 
 	function handleSubmit(e: FormEvent) {
 		e.preventDefault();
@@ -64,7 +66,7 @@ export function EditPlanModal({
 			}
 		}
 		updateFundingPlan(plan.id, {
-			totalTargetUsd: Math.round(amt * 100) / 100,
+			totalTarget: Math.round(amt * 100) / 100,
 			description: description.trim() || "Branch funding plan",
 			status,
 		});
@@ -88,7 +90,7 @@ export function EditPlanModal({
 			}
 		>
 			<form id="edit-plan-form" onSubmit={handleSubmit} className="space-y-4">
-				<Field label="Total target (USD)" required>
+				<Field label={`Total target (${currency})`} required>
 					<Input
 						type="number"
 						min="0"
@@ -125,7 +127,7 @@ export function EditPlanModal({
 					</p>
 				)}
 				<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
-					Target so far: {formatUsd(plan.totalTargetUsd)}. Editing the target
+					Target so far: {formatMoney(plan.totalTarget, currency)}. Editing the target
 					does not change money already released or spent — those are recorded
 					separately.
 				</p>

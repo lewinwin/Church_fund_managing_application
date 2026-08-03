@@ -217,16 +217,12 @@ function CreateBranchModal({
 	const [name, setName] = useState("");
 	const [country, setCountry] = useState("");
 	const [currencyCode, setCurrencyCode] = useState("");
-	const [rate, setRate] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
-	const rateNum = Number(rate);
 	const code = currencyCode.trim().toUpperCase();
-	const preview =
-		code && rateNum > 0 ? `1 ${code} = $${rateNum}` : "1 local = ? USD";
 
 	async function handleSubmit(e: FormEvent) {
 		e.preventDefault();
@@ -234,8 +230,6 @@ function CreateBranchModal({
 		if (!country.trim()) return setError("Country is required.");
 		if (!/^[A-Z]{3}$/.test(code))
 			return setError("Currency must be a 3-letter code (e.g. VND).");
-		if (!(rateNum > 0))
-			return setError("Enter an exchange rate greater than 0.");
 		if (!email.trim() || !email.includes("@"))
 			return setError("Enter a valid login email.");
 		if (
@@ -253,7 +247,6 @@ function CreateBranchModal({
 				name: name.trim(),
 				country: country.trim(),
 				currencyCode: code,
-				exchangeRateToUsd: rateNum,
 				loginEmail: email.trim(),
 				defaultPassword: password,
 			});
@@ -300,26 +293,14 @@ function CreateBranchModal({
 						placeholder="e.g. Vietnam"
 					/>
 				</Field>
-				<div className="grid grid-cols-2 gap-3">
-					<Field label="Currency code" required hint="3-letter ISO (VND, THB…)">
-						<Input
-							value={currencyCode}
-							maxLength={3}
-							onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
-							placeholder="VND"
-						/>
-					</Field>
-					<Field label="Rate to USD" required hint={preview}>
-						<Input
-							type="number"
-							step="any"
-							min="0"
-							value={rate}
-							onChange={(e) => setRate(e.target.value)}
-							placeholder="0.0000395"
-						/>
-					</Field>
-				</div>
+				<Field label="Currency code" required hint="3-letter ISO (VND, THB…)">
+					<Input
+						value={currencyCode}
+						maxLength={3}
+						onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
+						placeholder="VND"
+					/>
+				</Field>
 				<p className="rounded-lg bg-[var(--color-forest-50)] px-3 py-2 text-xs text-[var(--color-muted)]">
 					Creates the branch plus a login account. The branch signs in with the
 					email + password below and can change the password later in Settings.
