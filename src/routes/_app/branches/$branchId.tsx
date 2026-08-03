@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, PlusCircle, Settings2 } from "lucide-react";
 import { useState } from "react";
+import { CategoryDonutCard } from "#/components/dashboard/CategoryDonutCard";
 import { FundOverview } from "#/components/dashboard/FundOverview";
 import { EditPlanModal } from "#/components/funding/EditPlanModal";
 import { FundReleaseHistory } from "#/components/funding/FundReleaseHistory";
@@ -107,11 +108,14 @@ function BranchDetailPage() {
 				}
 			/>
 
-			<FundReleaseHistory
-				releases={releases}
-				users={data.users}
-				currency={cur}
-			/>
+			<div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+				<FundReleaseHistory
+					releases={releases}
+					users={data.users}
+					currency={cur}
+				/>
+				<CategoryDonutCard categorySlices={led.byCategory} currency={cur} />
+			</div>
 
 			<SectionCard title="Expenses">
 				<GroupedExpenseList
