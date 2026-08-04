@@ -30,12 +30,16 @@ function decimalsFor(currency: CurrencyCode): number {
 	}
 }
 
+/** Money with the currency's ISO CODE rather than its symbol, e.g. "ZAR 640,00"
+ *  (not "R 640,00"). Codes are unambiguous across branches — several currencies
+ *  share the "$" / "R" glyphs — so the whole app names the currency explicitly. */
 export function formatMoney(amount: number, currency: CurrencyCode): string {
 	const fractionDigits = decimalsFor(currency);
 	try {
 		return new Intl.NumberFormat(CURRENCY_LOCALE[currency] ?? "en-US", {
 			style: "currency",
 			currency,
+			currencyDisplay: "code",
 			minimumFractionDigits: fractionDigits,
 			maximumFractionDigits: fractionDigits,
 		}).format(amount);
