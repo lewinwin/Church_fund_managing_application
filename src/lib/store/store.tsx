@@ -45,6 +45,8 @@ import type {
 
 // Review fields (reviewStatus/reviewNote/modifyCount) and the OCR check are set
 // server-side, so the client never supplies them when submitting.
+// The client provides the receipt as a data URL; the server uploads it to object
+// storage and persists only the key (receiptKey lives on Expense, not here).
 export type NewExpense = Omit<
 	Expense,
 	| "id"
@@ -53,7 +55,8 @@ export type NewExpense = Omit<
 	| "reviewNote"
 	| "modifyCount"
 	| "ocrCheck"
->;
+	| "receiptKey"
+> & { receiptDataUrl: string | null };
 export type NewFundingPlan = Omit<FundingPlan, "id" | "createdAt">;
 export type NewFundRelease = Omit<FundRelease, "id" | "createdAt">;
 

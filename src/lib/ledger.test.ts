@@ -14,7 +14,7 @@ function expense(over: Partial<Expense>): Expense {
 		categoryId: over.categoryId ?? "c-meals",
 		otherSubcategoryId: null,
 		receiptFileName: null,
-		receiptDataUrl: null,
+		receiptKey: null,
 		ocrConfidence: null,
 		ocrCheck: null,
 		reviewStatus: over.reviewStatus ?? "ok",
