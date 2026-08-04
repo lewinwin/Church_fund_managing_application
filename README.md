@@ -118,7 +118,7 @@ State is provided by two React contexts — `AuthProvider` and a custom `StorePr
 
 ## Setup
 
-Requires [Bun](https://bun.sh) and Docker (for local Postgres + Redis).
+Requires [Bun](https://bun.sh). Docker is the easy path for the backing services (Postgres + Redis + MinIO), but native Postgres + the standalone MinIO binary work too (see step 3).
 
 ```bash
 # 1. Install dependencies
@@ -166,8 +166,8 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 
 ## Two builds
 
-- **`main` / `Win-branch`** — pure PostgreSQL; receipt images stored base64 in the DB. *(This README describes this build.)*
-- **`backend-supabase-included`** — Supabase Postgres + a private Storage bucket for receipt images (adds `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
+- **`main` / `Win-branch`** — pure PostgreSQL; receipt files in **S3-compatible object storage** (MinIO dev · Cloudflare R2 prod), the DB keeps only the key. *(This README describes this build.)*
+- **`backend-supabase-included`** — Supabase Postgres + Supabase Storage for receipt files (adds `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
 
 ---
 
