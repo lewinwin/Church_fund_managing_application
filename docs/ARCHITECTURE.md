@@ -3,7 +3,7 @@
 > **Purpose:** A precise map of the codebase for fast orientation mid-task (human or AI). Where each folder/file lives, what it's responsible for, and how one request travels end-to-end.
 > **Audience:** future-me / AI assistant reference — dense and complete, not a tutorial.
 > **Last verified against source:** 2026-07-23.
-> **Two builds:** `main` / `Win-branch` (pure PostgreSQL, receipt images stored base64 in the DB) and `backend-supabase-included` (Supabase Postgres + a private Storage bucket for images). This doc describes the pure build; the few Supabase-only parts are flagged.
+> **Two builds:** `main` / `Win-branch` (pure PostgreSQL; receipt files in **S3-compatible object storage** — MinIO dev / Cloudflare R2 prod) and `backend-supabase-included` (Supabase Postgres + Storage). This doc describes the pure build.
 
 ---
 
@@ -102,7 +102,8 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 | `auth/ctx.ts` | `getAuthCtx()` / `requireAuthCtx()` — resolve the cookie session → `{ userId, role, branchId }`. |
 | `auth/auth.tsx` | **Client** `AuthProvider` / `useAuth()`. Mirrors the cookie session into React state. `login` is async → `{ ok, error? }`. |
 | `server/scope.ts` | **Branch-isolation gate:** `branchScope(ctx, col)` → Drizzle `WHERE` (undefined for HQ), `canWriteBranch`. Pure + the `AuthCtx` type. Unit-tested (`scope.test.ts`) — no DB. |
-| `server/data.ts` | The data layer: row↔domain mappers, `getBootstrapData(ctx)` (reads gated by `branchScope`), `getBranchCount()` (public), and every mutation. Sensitive fields (branchId, submitter) derive from `ctx`, never the client. Review transitions go through the lifecycle (§7); money is never summed here. |
+| `server/data.ts` | The data layer: row↔domain mappers, `getBootstrapData(ctx)` (reads gated by `branchScope`), `getBranchCount()` (public), and every mutation. Sensitive fields (branchId, submitter) derive from `ctx`, never the client. `submitExpense` uploads the receipt bytes to object storage (`storage.ts`) and stores only the key; `verifyExpense` fetches them back for OCR. Review transitions go through the lifecycle (§7); money is never summed here. |
+| `server/storage.ts` | **Receipt object storage** (`@aws-sdk/client-s3`, S3-compatible). `putReceipt` (server-side upload on submit), `getReceiptBytes` (for OCR), `presignedReceiptUrl` (short-lived private-bucket view URL, exposed via `receiptUrlFn`), `receiptKeyFor`. Driven by `S3_*` env — MinIO in dev, Cloudflare R2 in prod. The DB stores only the key (`expenses.receipt_key`); bytes never touch a column. |
 | `server/ocr.ts` | **Gemini OCR** (`gemini-flash-latest`; `GEMINI_MODEL` overrides). `runReceiptVerification(dataUrl, ctx)` reads a receipt and reports amount/date/currency + category fit for verification. `runReceiptOcr` (raw extraction) is retained but no longer used by the submit form. Server-only (API key); never throws. |
 | `server/verify.ts` | **Pure OCR comparison** — `compareReceipt(entered, ocr)` → `{amountMatch, dateMatch, categoryOk, needsCheck}` (amount/date exact, category by confidence threshold). No DB. |
 | `server/fns.ts` | The RPC API — `createServerFn` wrappers the client calls. Auth: `getSessionFn`/`signInFn`/`signOutFn`. Data: `bootstrapFn`, `branchCountFn`, one fn per mutation, plus the review fns (`verifyExpenseFn`, `cancelExpenseFn`, `requestModifyFn`, `confirmModificationFn`, `updateExpenseFieldsFn`). |
@@ -122,7 +123,7 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 | `id.ts` | ID generation. |
 | `ocr/ocrService.ts` | ⚠ Legacy W1 **mock** OCR stub — superseded by `server/ocr.ts`, no longer imported. |
 
-*(Supabase build only: `server/storage.ts` — receipt images → a private Supabase Storage bucket, with `receiptUrlFn` for signed view URLs. The pure build omits it and keeps base64 in the DB.)*
+*(The `backend-supabase-included` build swaps `storage.ts` to a Supabase Storage bucket; the S3 code here also targets Supabase's S3 endpoint, so they can converge.)*
 
 ---
 
@@ -137,7 +138,7 @@ File-based routing: the file path *is* the URL. `_` prefixes a **pathless layout
 | `drizzle.config.ts` | drizzle-kit target — uses `ADMIN_DATABASE_URL` (owner role) for `db:push` / `db:studio`. |
 | `vite.config.ts` | TanStack Start + Vite plugins; `#/*` path alias → `src/*`. |
 | `biome.json` | Lint/format — tabs, double quotes. |
-| `.env` (gitignored) | `DATABASE_URL` (app), `ADMIN_DATABASE_URL` (owner), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`); Supabase build also `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. |
+| `.env` (gitignored) | `DATABASE_URL` (app), `ADMIN_DATABASE_URL` (owner), `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `OCR_PROVIDER` (+ `GEMINI_API_KEY`/`GEMINI_MODEL` when gemini), `S3_ENDPOINT`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`/`S3_BUCKET`/`S3_REGION` (object storage); Supabase build also `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. |
 
 **Two DB roles:** migrations/seed run as owner `postgres`; the app runs as the limited `petty_app` (row DML, no DDL). Isolation is `branchScope` in app code, not RLS — the limited role is least-privilege only.
 

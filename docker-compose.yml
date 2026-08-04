@@ -35,6 +35,43 @@ services:
     volumes:
       - redisdata:/data
 
+  # MinIO — a local, S3-compatible object store for receipt images. Same S3 API
+  # as Cloudflare R2 / AWS S3, so the app code is identical; only the S3_* env
+  # vars change between dev (here) and production (R2). Console at :9001.
+  minio:
+    image: minio/minio
+    container_name: ministry-funding-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000" # S3 API (S3_ENDPOINT)
+      - "9001:9001" # web console
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: create the private `receipts` bucket the app uploads to.
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123 &&
+      mc mb --ignore-existing local/receipts &&
+      mc anonymous set none local/receipts &&
+      echo 'receipts bucket ready (private)';
+      "
+
 volumes:
   pgdata:
   redisdata:
+  miniodata:

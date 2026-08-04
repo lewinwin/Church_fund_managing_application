@@ -11,6 +11,7 @@ import { user as userTable } from "#/lib/db/schema";
 import type { FundingPlanStatus, Role } from "#/lib/types";
 import * as data from "./data";
 import { runReceiptOcr } from "./ocr";
+import { presignedReceiptUrl } from "./storage";
 
 // Shared default for new/reset accounts. Branches sign in with this, then set
 // their own password in Settings → Change password.
@@ -93,6 +94,21 @@ export const bootstrapFn = createServerFn({ method: "GET" }).handler(
 export const branchCountFn = createServerFn({ method: "GET" }).handler(
 	async () => data.getBranchCount(),
 );
+
+// A short-lived presigned GET URL to view a receipt from the private bucket. Any
+// signed-in user; a branch user can only presign keys under their own branch.
+export const receiptUrlFn = createServerFn({ method: "POST" })
+	.validator((d: { key: string }) => d)
+	.handler(async ({ data: input }) => {
+		const ctx = await requireAuthCtx();
+		if (
+			ctx.role === "branch_user" &&
+			!input.key.startsWith(`receipts/${ctx.branchId}/`)
+		) {
+			throw new Error("Not allowed to view this receipt");
+		}
+		return { url: await presignedReceiptUrl(input.key) };
+	});
 
 // Receipt OCR (Gemini 2.5 Flash). Runs server-side so the API key stays secret.
 // Any signed-in user may extract; the result only pre-fills their review form.

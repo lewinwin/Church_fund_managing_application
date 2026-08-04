@@ -105,7 +105,8 @@ OCR only ever **flags**; every Cancel / Modify / Correct is a human HQ decision.
 | Auth | **Better Auth** (email/password, hashed; `role` + `branchId` fields) |
 | Data | Server functions (`createServerFn`) — no separate API layer |
 | Database | **PostgreSQL** + **Drizzle ORM** (postgres.js driver) |
-| OCR | **Google Gemini** (server-side; key never reaches the browser) |
+| OCR | **Gemini** (cloud) or local **Tesseract** — selectable via `OCR_PROVIDER` |
+| Storage | Receipt files in **S3-compatible** object storage (MinIO dev · Cloudflare R2 prod) — private bucket + presigned URLs |
 | UI | Tailwind CSS + lucide-react icons + custom primitives |
 | Testing | **Vitest** (+ Testing Library) |
 | Format / lint | **Biome** (tabs) |
@@ -117,7 +118,7 @@ State is provided by two React contexts — `AuthProvider` and a custom `StorePr
 
 ## Setup
 
-Requires [Bun](https://bun.sh) and Docker (for local Postgres + Redis).
+Requires [Bun](https://bun.sh). Docker is the easy path for the backing services (Postgres + Redis + MinIO), but native Postgres + the standalone MinIO binary work too (see step 3).
 
 ```bash
 # 1. Install dependencies
@@ -125,11 +126,14 @@ bun install
 
 # 2. Configure environment
 cp .env.example .env
-#    then edit .env — set BETTER_AUTH_SECRET (openssl rand -base64 32)
-#    and GEMINI_API_KEY. The DB values already match docker-compose.
+#    then edit .env — set BETTER_AUTH_SECRET (openssl rand -base64 32). The DB +
+#    S3 (MinIO) defaults already match docker-compose. GEMINI_API_KEY is only
+#    needed when OCR_PROVIDER=gemini.
 
-# 3. Start backing services (Postgres + Redis)
+# 3. Start backing services (Postgres + Redis + MinIO local S3)
 docker compose up -d
+#    No Docker? Use native Postgres + the standalone MinIO binary, then:
+#    bun run s3:init          # create the private "receipts" bucket
 
 # 4. Create the schema and seed demo data
 bun run db:push          # apply the Drizzle schema
@@ -144,7 +148,9 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 
 **Demo logins** (all password `demo123`): `hq@example.com` (HQ) · `singapore@example.com` · `malawi@example.com` · `southafrica@example.com` · `costarica@example.com` (branches).
 
-> **Note:** the Gemini OCR call runs server-side. If your network blocks Google, the dev server — running on your machine — needs a VPN to reach it. In production the call originates from the host, not the user's browser.
+> **Receipts** are stored in **object storage** (S3-compatible), never in the database — the expense row keeps only an object *key*, and the UI views files through short-lived **presigned URLs** from a **private** bucket. Local dev uses **MinIO**; production uses **Cloudflare R2** — same code, only the `S3_*` env vars change.
+>
+> **OCR** runs server-side and is selectable via `OCR_PROVIDER` — `gemini` (cloud; needs a key and reachable Google) or `tesseract` (fully local, no key).
 
 ---
 
@@ -160,8 +166,8 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 
 ## Two builds
 
-- **`main` / `Win-branch`** — pure PostgreSQL; receipt images stored base64 in the DB. *(This README describes this build.)*
-- **`backend-supabase-included`** — Supabase Postgres + a private Storage bucket for receipt images (adds `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
+- **`main` / `Win-branch`** — pure PostgreSQL; receipt files in **S3-compatible object storage** (MinIO dev · Cloudflare R2 prod), the DB keeps only the key. *(This README describes this build.)*
+- **`backend-supabase-included`** — Supabase Postgres + Supabase Storage for receipt files (adds `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
 
 ---
 

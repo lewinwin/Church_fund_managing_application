@@ -129,7 +129,9 @@ export const expenses = pgTable("expenses", {
 	categoryId: text("category_id").notNull(),
 	otherSubcategoryId: text("other_subcategory_id"),
 	receiptFileName: text("receipt_file_name"),
-	receiptDataUrl: text("receipt_data_url"),
+	// Object-storage key for the receipt (e.g. receipts/<branchId>/<expenseId>.jpg).
+	// The bytes live in S3/R2, NOT in the DB — this is just the pointer.
+	receiptKey: text("receipt_key"),
 	ocrConfidence: doublePrecision("ocr_confidence"),
 	ocrRaw: jsonb("ocr_raw"),
 	// OCR verification workflow. A submitted expense starts as `checking`; the

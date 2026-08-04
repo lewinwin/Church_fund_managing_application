@@ -47,10 +47,13 @@ export function ReceiptPreview({
 	zoomable?: boolean;
 }) {
 	const [zoomed, setZoomed] = useState(false);
-	const isImage = dataUrl?.startsWith("data:image");
+	// `dataUrl` may be a data: URL (submit-time preview) or a presigned https URL
+	// (a stored receipt). PDFs are detected by prefix or filename; anything else
+	// with a src is treated as an image.
 	const isPdf =
 		dataUrl?.startsWith("data:application/pdf") ||
 		fileName?.toLowerCase().endsWith(".pdf");
+	const isImage = !!dataUrl && !isPdf;
 
 	// Close the lightbox on Escape.
 	useEffect(() => {

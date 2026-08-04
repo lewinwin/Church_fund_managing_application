@@ -81,7 +81,7 @@ async function main() {
 			categoryId: e.categoryId,
 			otherSubcategoryId: e.otherSubcategoryId,
 			receiptFileName: e.receiptFileName,
-			receiptDataUrl: e.receiptDataUrl,
+			receiptKey: e.receiptKey,
 			ocrConfidence: e.ocrConfidence,
 			ocrRaw: null,
 			// Seed expenses are historical/verified — they start as `ok`, not

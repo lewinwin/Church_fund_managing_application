@@ -28,6 +28,7 @@ import type {
 } from "#/lib/types";
 import { runReceiptVerification } from "./ocr";
 import { type AuthCtx, branchScope } from "./scope";
+import { getReceiptBytes, putReceipt, receiptKeyFor } from "./storage";
 import { compareReceipt } from "./verify";
 
 const iso = (d: Date | string) => (typeof d === "string" ? d : d.toISOString());
@@ -62,7 +63,7 @@ function mapExpense(r: typeof t.expenses.$inferSelect): Expense {
 		categoryId: r.categoryId,
 		otherSubcategoryId: r.otherSubcategoryId,
 		receiptFileName: r.receiptFileName,
-		receiptDataUrl: r.receiptDataUrl,
+		receiptKey: r.receiptKey,
 		ocrConfidence: r.ocrConfidence,
 		ocrCheck: parseOcrCheck(r.ocrRaw),
 		reviewStatus: r.reviewStatus as ReviewStatus,
@@ -172,6 +173,22 @@ export async function submitExpense(ctx: AuthCtx, input: SubmitExpenseInput) {
 		throw new Error("Only branch users can submit expenses");
 	}
 	const id = newId("exp");
+	// The client sends the image as a data URL; store the BYTES in object storage
+	// and keep only the key in the DB (never base64 in a column).
+	let receiptKey: string | null = null;
+	if (input.receiptDataUrl) {
+		const m = /^data:(.+?);base64,(.*)$/s.exec(input.receiptDataUrl);
+		if (m) {
+			const [, contentType, b64] = m;
+			const key = receiptKeyFor(ctx.branchId, id, contentType);
+			await putReceipt(
+				key,
+				new Uint8Array(Buffer.from(b64, "base64")),
+				contentType,
+			);
+			receiptKey = key;
+		}
+	}
 	await db.insert(t.expenses).values({
 		id,
 		branchId: ctx.branchId,
@@ -183,7 +200,7 @@ export async function submitExpense(ctx: AuthCtx, input: SubmitExpenseInput) {
 		categoryId: input.categoryId,
 		otherSubcategoryId: input.otherSubcategoryId,
 		receiptFileName: input.receiptFileName,
-		receiptDataUrl: input.receiptDataUrl,
+		receiptKey,
 		ocrConfidence: input.ocrConfidence,
 		ocrRaw: null,
 	});
@@ -220,9 +237,11 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 		.filter((c) => c.parentId === null && c.active)
 		.map((c) => c.name);
 
-	// No receipt to check against → can't confirm → route to human review. Record
-	// a typed "unreadable" check (all nulls / no match) rather than a special blob.
-	if (!exp.receiptDataUrl) {
+	// Fetch the receipt bytes from object storage (by key) for the OCR provider.
+	// No receipt / fetch failure → can't confirm → route to human review with a
+	// typed "unreadable" check (all nulls / no match) rather than a special blob.
+	const receipt = exp.receiptKey ? await getReceiptBytes(exp.receiptKey) : null;
+	if (!receipt) {
 		const status = nextStatusAfterVerify(exp.modifyCount, true);
 		const check: OcrCheck = {
 			ocrAmount: null,
@@ -244,7 +263,8 @@ export async function verifyExpense(ctx: AuthCtx, expenseId: string) {
 		return { status };
 	}
 
-	const ocr = await runReceiptVerification(exp.receiptDataUrl, {
+	const dataUrl = `data:${receipt.contentType};base64,${receipt.bytes.toString("base64")}`;
+	const ocr = await runReceiptVerification(dataUrl, {
 		enteredAmount: exp.localAmount,
 		enteredDate: exp.expenseDate,
 		chosenCategory,

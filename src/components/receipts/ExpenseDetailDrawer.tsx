@@ -7,6 +7,7 @@ import { useAuth } from "#/lib/auth/auth";
 import { categoryLabel } from "#/lib/calc";
 import { availableActions, isResolved } from "#/lib/reviewLifecycle";
 import { formatDate, formatDateTime, formatMoney } from "#/lib/format";
+import { receiptUrlFn } from "#/lib/server/fns";
 import type { Branch, Category, Expense, User } from "#/lib/types";
 import { ReceiptPreview } from "./ReceiptPreview";
 import { ReviewBadge } from "./ReviewBadge";
@@ -39,10 +40,23 @@ export function ExpenseDetailDrawer({
 	const { user } = useAuth();
 	// Correcting happens beside the drawer, so the receipt stays on screen.
 	const [correcting, setCorrecting] = useState(false);
+	const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
-	// Reset the form whenever a different receipt is opened/closed.
+	// On open: reset the correction form and fetch a fresh short-lived presigned
+	// URL for the receipt (the bytes live in object storage; we only hold the key).
 	useEffect(() => {
 		setCorrecting(false);
+		setReceiptUrl(null);
+		if (!expense?.receiptKey) return;
+		let cancelled = false;
+		receiptUrlFn({ data: { key: expense.receiptKey } })
+			.then((r) => {
+				if (!cancelled) setReceiptUrl(r.url);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
 	}, [expense]);
 	const branch = expense
 		? branches.find((b) => b.id === expense.branchId)
@@ -148,7 +162,7 @@ export function ExpenseDetailDrawer({
 
 					<div className="space-y-5">
 						<ReceiptPreview
-							dataUrl={expense.receiptDataUrl}
+							dataUrl={receiptUrl}
 							fileName={expense.receiptFileName}
 						/>
 

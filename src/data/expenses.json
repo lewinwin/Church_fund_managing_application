@@ -10,7 +10,7 @@
 		"categoryId": "cat-meals",
 		"otherSubcategoryId": null,
 		"receiptFileName": "kopitiam-lunch.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.94,
 		"createdAt": "2026-06-24T03:12:00.000Z"
 	},
@@ -25,7 +25,7 @@
 		"categoryId": "cat-transport",
 		"otherSubcategoryId": null,
 		"receiptFileName": "grab-airport.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.88,
 		"createdAt": "2026-06-22T11:40:00.000Z"
 	},
@@ -40,7 +40,7 @@
 		"categoryId": "cat-other",
 		"otherSubcategoryId": "sub-stationery",
 		"receiptFileName": "stationery.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.91,
 		"createdAt": "2026-06-18T07:05:00.000Z"
 	},
@@ -55,7 +55,7 @@
 		"categoryId": "cat-electricity",
 		"otherSubcategoryId": null,
 		"receiptFileName": "sp-electricity.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.79,
 		"createdAt": "2026-06-10T02:20:00.000Z"
 	},
@@ -70,7 +70,7 @@
 		"categoryId": "cat-other",
 		"otherSubcategoryId": "sub-venue",
 		"receiptFileName": "suntec-hall.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.72,
 		"createdAt": "2026-06-05T08:55:00.000Z"
 	},
@@ -85,7 +85,7 @@
 		"categoryId": "cat-meals",
 		"otherSubcategoryId": null,
 		"receiptFileName": "shoprite.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.83,
 		"createdAt": "2026-06-21T09:30:00.000Z"
 	},
@@ -100,7 +100,7 @@
 		"categoryId": "cat-transport",
 		"otherSubcategoryId": null,
 		"receiptFileName": null,
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": null,
 		"createdAt": "2026-06-17T13:15:00.000Z"
 	},
@@ -115,7 +115,7 @@
 		"categoryId": "cat-electricity",
 		"otherSubcategoryId": null,
 		"receiptFileName": "escom-bill.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.86,
 		"createdAt": "2026-06-12T06:40:00.000Z"
 	},
@@ -130,7 +130,7 @@
 		"categoryId": "cat-other",
 		"otherSubcategoryId": "sub-repair",
 		"receiptFileName": "pa-repair.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.68,
 		"createdAt": "2026-06-03T10:10:00.000Z"
 	},
@@ -145,7 +145,7 @@
 		"categoryId": "cat-meals",
 		"otherSubcategoryId": null,
 		"receiptFileName": "woolworths.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.9,
 		"createdAt": "2026-06-25T12:00:00.000Z"
 	},
@@ -160,7 +160,7 @@
 		"categoryId": "cat-transport",
 		"otherSubcategoryId": null,
 		"receiptFileName": "uber-trip.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.84,
 		"createdAt": "2026-06-20T15:25:00.000Z"
 	},
@@ -175,7 +175,7 @@
 		"categoryId": "cat-other",
 		"otherSubcategoryId": "sub-stationery",
 		"receiptFileName": "waltons.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.87,
 		"createdAt": "2026-06-15T08:45:00.000Z"
 	},
@@ -190,7 +190,7 @@
 		"categoryId": "cat-electricity",
 		"otherSubcategoryId": null,
 		"receiptFileName": "eskom.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.81,
 		"createdAt": "2026-06-09T07:30:00.000Z"
 	},
@@ -205,7 +205,7 @@
 		"categoryId": "cat-other",
 		"otherSubcategoryId": "sub-venue",
 		"receiptFileName": "cityhall.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.7,
 		"createdAt": "2026-06-02T09:15:00.000Z"
 	},
@@ -220,7 +220,7 @@
 		"categoryId": "cat-meals",
 		"otherSubcategoryId": null,
 		"receiptFileName": "automercado.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.89,
 		"createdAt": "2026-06-23T14:50:00.000Z"
 	},
@@ -235,7 +235,7 @@
 		"categoryId": "cat-transport",
 		"otherSubcategoryId": null,
 		"receiptFileName": null,
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": null,
 		"createdAt": "2026-06-19T16:05:00.000Z"
 	},
@@ -250,7 +250,7 @@
 		"categoryId": "cat-electricity",
 		"otherSubcategoryId": null,
 		"receiptFileName": "ice-bill.pdf",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.82,
 		"createdAt": "2026-06-11T05:35:00.000Z"
 	},
@@ -265,7 +265,7 @@
 		"categoryId": "cat-other",
 		"otherSubcategoryId": "sub-repair",
 		"receiptFileName": "audio-repair.jpg",
-		"receiptDataUrl": null,
+		"receiptKey": null,
 		"ocrConfidence": 0.66,
 		"createdAt": "2026-06-04T11:20:00.000Z"
 	}

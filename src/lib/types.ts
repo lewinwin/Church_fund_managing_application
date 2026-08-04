@@ -86,8 +86,9 @@ export interface Expense {
 	categoryId: string;
 	otherSubcategoryId: string | null;
 	receiptFileName: string | null;
-	/** base64 data URL held client-side for preview (no real storage in W1). */
-	receiptDataUrl: string | null;
+	/** Object-storage key for the receipt file (bytes live in S3/R2, not the DB).
+	 *  View it via a presigned URL; null when no receipt was stored. */
+	receiptKey: string | null;
 	ocrConfidence: number | null;
 	/** The typed OCR verification record (entered-vs-receipt comparison), or null
 	 *  before it has been checked. Persisted in the ocr_raw jsonb column. */
