@@ -14,6 +14,7 @@
     "ocr:smoke": "bun scripts/ocr-smoke.ts",
     "pdf:smoke": "bun scripts/pdf-smoke.ts",
     "pdf:render": "bun scripts/pdf-render-smoke.ts",
+    "s3:init": "bun scripts/s3-init.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "bun scripts/seed.ts",
     "db:seed:users": "bun scripts/seed-users.ts",
@@ -23,6 +24,8 @@
     "check": "biome check"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1102.0",
+    "@aws-sdk/s3-request-presigner": "^3.1102.0",
     "@napi-rs/canvas": "^1.0.3",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
