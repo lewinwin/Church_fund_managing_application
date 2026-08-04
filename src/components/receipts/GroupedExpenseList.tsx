@@ -76,9 +76,20 @@ export function GroupedExpenseList({
 	const visible =
 		monthFilter === "all" ? months : months.filter((m) => m.ym === monthFilter);
 
+	// Expand/collapse every visible group at once — down to the day level, so a
+	// single click opens the whole tree instead of tapping each month and day.
+	function expandAll() {
+		setOpenMonths(new Set(visible.map((m) => m.ym)));
+		setOpenDays(new Set(visible.flatMap((m) => m.days.map((d) => d.day))));
+	}
+	function collapseAll() {
+		setOpenMonths(new Set());
+		setOpenDays(new Set());
+	}
+
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center justify-between gap-3">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<Select
 					className="sm:w-56"
 					value={monthFilter}
@@ -91,9 +102,26 @@ export function GroupedExpenseList({
 						</option>
 					))}
 				</Select>
-				<span className="shrink-0 text-xs text-[var(--color-muted)]">
-					Amounts in {unit}
-				</span>
+				<div className="flex items-center gap-2.5">
+					<button
+						type="button"
+						onClick={expandAll}
+						className="text-xs font-medium text-[var(--color-forest-700)] hover:underline"
+					>
+						Expand all
+					</button>
+					<span className="text-[var(--color-line)]">·</span>
+					<button
+						type="button"
+						onClick={collapseAll}
+						className="text-xs font-medium text-[var(--color-forest-700)] hover:underline"
+					>
+						Collapse all
+					</button>
+					<span className="ml-1 shrink-0 text-xs text-[var(--color-muted)]">
+						Amounts in {unit}
+					</span>
+				</div>
 			</div>
 
 			{visible.map((month) => {
