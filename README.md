@@ -148,6 +148,43 @@ Quality gates: `bun run check` (Biome) · `bunx tsc --noEmit` · `bun run test` 
 
 ---
 
+## Deploy (Coolify / any Node host)
+
+`bun run build` produces a standalone **Nitro Node server** at `.output/server/index.mjs`. Coolify builds it with **Nixpacks** using the committed [`nixpacks.toml`](nixpacks.toml) — no Dockerfile required. The same output runs on any Node host (Railway, Render, a plain VPS).
+
+> **This branch stores receipt images as base64 in the database** (no object storage), so deploy needs **only Postgres** — no S3 bucket. (The `main` branch moves receipts to S3/R2; deploy that instead if you expect many/large receipts, to avoid database bloat.)
+
+**1. Provision Postgres** — a managed database (Coolify's one-click Postgres, or Neon / Supabase / RDS). Redis is **not** required (unused).
+
+**2. Create the Coolify application** from this repo + branch. Nixpacks auto-detects it and uses `nixpacks.toml`: build `bun run build`, start `node .output/server/index.mjs`. Coolify injects `PORT`; the server binds `0.0.0.0`.
+
+**3. Set environment variables** in Coolify (see `.env.example` for the annotated list):
+
+| Var | Value |
+|---|---|
+| `DATABASE_URL` | app Postgres URL (limited role in prod) |
+| `ADMIN_DATABASE_URL` | Postgres URL with DDL rights (migrations/seed) |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | the app's **public** URL, e.g. `https://funding.example.org` |
+| `OCR_PROVIDER` | `gemini` or `tesseract` |
+| `GEMINI_API_KEY` | only when `OCR_PROVIDER=gemini` |
+
+**4. Initialise the DB once** (Coolify app terminal, or locally with the prod env):
+
+```bash
+bun run db:push          # create the schema
+bun run db:seed          # branches, categories, plans, demo expenses
+bun run db:seed:users    # demo logins (password demo123) — change these after first login!
+```
+
+**5. Deploy** — Coolify builds and starts the server; open `BETTER_AUTH_URL`.
+
+Gotchas:
+- `BETTER_AUTH_URL` **must** equal the public URL or logins fail (session-cookie mismatch).
+- `OCR_PROVIDER=gemini` needs outbound network to Google + the key; `tesseract` runs fully offline (English data is committed under `tessdata/`).
+
+---
+
 ## Project standards
 
 - **Branch isolation** — every branch-scoped query passes through `branchScope` (`src/lib/server/scope.ts`), a pure, unit-tested gate. There is no DB RLS backstop, so a forgotten `branchScope` is a leak.

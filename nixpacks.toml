@@ -1,0 +1,14 @@
+# Nixpacks build for self-hosted Node deploys (Coolify, Railway, etc.).
+# The TanStack Start / Nitro build produces a standalone Node server at
+# .output/server/index.mjs. Nixpacks auto-detects Bun and installs deps before
+# the build phase. The platform injects PORT; HOST=0.0.0.0 makes the server
+# bind all interfaces so the proxy can reach it.
+
+[phases.build]
+cmds = ['bun run build']
+
+[start]
+cmd = 'node .output/server/index.mjs'
+
+[variables]
+HOST = '0.0.0.0'
